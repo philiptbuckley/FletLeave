@@ -2,24 +2,45 @@ import flet as ft
 import calendar
 from datetime import date
 
-def main(page: ft.Page):
-    page.title = "Leave Tracker Calendar"
+class Calendar:
+    def __init__(self, page, year, month):
+        self.page = page
+        self.year = year
+        self.month = month
+        self.selected_dates = set()
+        self.view = "month"  # Default view
 
-    today = date.today()
-    current_year = today.year
-    current_month = today.month
-    current_view = "month"
+        self.header = ft.Text("", size=20, weight="bold")
+        self.calendar_grid = ft.Column()
+        self.selected_text = ft.Text()
+        self.build_calendar(self.year, self.month)
+        self.update_selected_text()
 
-    selected_dates = set()
+        self.nav = ft.Row(
+            [
+                ft.IconButton(ft.Icons.ARROW_BACK, on_click=self.prev_month),
+                self.header,
+                ft.IconButton(ft.Icons.ARROW_FORWARD, on_click=self.next_month),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+        )
 
-    header = ft.Text("", size=20, weight="bold")
-    calendar_grid = ft.Column()
-    selected_text = ft.Text()
+        self.view = ft.Row(
+            [
+                ft.IconButton(ft.Icons.CALENDAR_VIEW_DAY, on_click=lambda e: self.set_view(e, "day"), tooltip="Day View"),
+                ft.IconButton(ft.Icons.CALENDAR_VIEW_WEEK, on_click=lambda e: self.set_view(e, "week"), tooltip="Week View"),
+                ft.IconButton(ft.Icons.CALENDAR_VIEW_MONTH, on_click=lambda e: self.set_view(e, "month"), tooltip="Month View", selected=True),
+                ft.IconButton(ft.Icons.CALENDAR_TODAY, on_click=lambda e: self.set_view(e, "year"), tooltip="Year View"),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+        )
 
-    def build_calendar(year, month):
-        header.value = f"{calendar.month_name[month]} {year}"
-        calendar_grid.controls.clear()
+        page.add(self.nav, self.calendar_grid, self.view, ft.Divider(), self.selected_text)
 
+    def build_calendar(self, year, month):
+
+        self.calendar_grid.controls.clear()
+        self.header.value = f"{calendar.month_name[month]} {year}"
         # Weekday headers
         week_header = ft.Row(
             controls=[
@@ -28,10 +49,10 @@ def main(page: ft.Page):
             ],
             alignment=ft.MainAxisAlignment.CENTER
         )
-        calendar_grid.controls.append(week_header)
+        self.calendar_grid.controls.append(week_header)
 
         cal = calendar.Calendar(firstweekday=0)
-        month_days = cal.monthdayscalendar(year, month)
+        month_days = cal.monthdayscalendar(self.year, self.month)
 
         for week in month_days:
             row = ft.Row(alignment=ft.MainAxisAlignment.CENTER)
@@ -42,14 +63,14 @@ def main(page: ft.Page):
                     day_date = date(year, month, day)
 
                     def toggle_leave(e, d=day_date):
-                        if d in selected_dates:
-                            selected_dates.remove(d)
+                        if d in self.selected_dates:
+                            self.selected_dates.remove(d)
                         else:
-                            selected_dates.add(d)
-                        build_calendar(year, month)
-                        update_selected_text()
+                            self.selected_dates.add(d)
+                        self.build_calendar(year, month)
+                        self.update_selected_text()
 
-                    is_selected = day_date in selected_dates
+                    is_selected = day_date in self.selected_dates
 
                     row.controls.append(
                         ft.Container(
@@ -62,65 +83,47 @@ def main(page: ft.Page):
                             on_click=toggle_leave,
                         )
                     )
-            calendar_grid.controls.append(row)
+            self.calendar_grid.controls.append(row)
 
-        page.update()
-
-    def update_selected_text():
-        if selected_dates:
-            sorted_dates = sorted(selected_dates)
-            selected_text.value = "Booked leave days:\n" + "\n".join(
+    def update_selected_text(self):
+        if self.selected_dates:
+            sorted_dates = sorted(self.selected_dates)
+            self.selected_text.value = "Booked leave days:\n" + "\n".join(
                 d.strftime("%Y-%m-%d") for d in sorted_dates
             )
         else:
-            selected_text.value = "No leave booked"
-        page.update()
+            self.selected_text.value = "No leave booked"
 
     # Month navigation
-    def prev_month(e):
-        nonlocal current_month, current_year
-        current_month -= 1
-        if current_month == 0:
-            current_month = 12
-            current_year -= 1
-        build_calendar(current_year, current_month)
+    def prev_month(self,e):
+        self.month -= 1
+        if self.month == 0:
+            self.month = 12
+            self.year -= 1
+        self.build_calendar(self.year, self.month)
 
-    def next_month(e):
-        nonlocal current_month, current_year
-        current_month += 1
-        if current_month == 13:
-            current_month = 1
-            current_year += 1
-        build_calendar(current_year, current_month)
+    def next_month(self, e):
+        self.month += 1
+        if self.month == 13:
+            self.month = 1
+            self.year += 1
+        self.build_calendar(self.year, self.month)
 
-    def set_view(e, view: str):
-        nonlocal current_view
-        current_view = view
-        build_calendar(current_year, current_month)
+    def set_view(self, e, view: str):
+        self.view = view
+        self.build_calendar(self.year, self.month)
 
-    nav = ft.Row(
-        [
-            ft.IconButton(ft.Icons.ARROW_BACK, on_click=prev_month),
-            header,
-            ft.IconButton(ft.Icons.ARROW_FORWARD, on_click=next_month),
-        ],
-        alignment=ft.MainAxisAlignment.CENTER,
-    )
+# Main function to run the app
+def main(page: ft.Page):
+    page.title = "Leave Tracker Calendar"
 
-    view = ft.Row(
-        [
-            ft.IconButton(ft.Icons.CALENDAR_VIEW_DAY, on_click=lambda e: set_view(e, "day"), tooltip="Day View"),
-            ft.IconButton(ft.Icons.CALENDAR_VIEW_WEEK, on_click=lambda e: set_view(e, "week"), tooltip="Week View"),
-            ft.IconButton(ft.Icons.CALENDAR_VIEW_MONTH, on_click=lambda e: set_view(e, "month"), tooltip="Month View", selected=True),
-            ft.IconButton(ft.Icons.CALENDAR_TODAY, on_click=lambda e: set_view(e, "year"), tooltip="Year View"),
-        ],
-        alignment=ft.MainAxisAlignment.CENTER,
-    )
+    today = date.today()
 
-    build_calendar(current_year, current_month)
-    update_selected_text()
+    # Create a calendar object
+    calendar = Calendar(page, today.year, today.month)
 
-    page.add(nav, calendar_grid, view, ft.Divider(), selected_text)
+    page.update()
 
-
-ft.run(main)
+# App entry point
+if __name__ == "__main__":
+    ft.run(main)
