@@ -28,8 +28,8 @@ class LeaveModel:
         today = date.today()
         self.year = today.year
         self.month = today.month
-        #self.employees = employees
-        self.current_employee_id = employees[0]["id"]
+        self.employees = employees
+        self.current_employee_id = None
         self.selected_leave_type = LeaveType.HOLIDAY
         self.selected_duration = LeaveDuration.FULL
         self.leave_entries = leave_entries or []
@@ -75,6 +75,22 @@ class LeaveModel:
             self.month = 1
             self.year += 1
 
+class EmployeeRepository:
+    def __init__(self, db_path="leave_calendar.db"):
+        self.conn = sqlite3.connect(db_path)
+        self._create_table()
+
+    def _create_table(self):
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS employees (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT)
+        """)
+        self.conn.commit()
+
+    def load_employees(self):
+        cursor = self.conn.execute("SELECT id, name FROM employees")
+        return [{"id": row[0], "name": row[1]} for row in cursor.fetchall()]
 
 # This class will handle the database interactions for storing and retrieving leave dates.
 # Keeping it separate from the model allows us to easily swap out the storage mechanism in 
@@ -97,7 +113,7 @@ class LeaveRepository:
         self.conn.commit()
 
     def load_entries(self, employee_id):
-        cursor = self.conn.execute("SELECT employee_id, leave_date, leave_type, duration FROM leave_entries WHERE employee_id = ?", (employee_id,))
+        cursor = self.conn.execute("SELECT employee_id, leave_date, leave_type, duration FROM leave_entries")
         return [LeaveEntry(employee_id=row[0], leave_date=date.fromisoformat(row[1]), leave_type=LeaveType[row[2]], duration=LeaveDuration[row[3]]) for row in cursor.fetchall()]
 
     def add_entry(self, d: date, employee_id, leave_type, duration):

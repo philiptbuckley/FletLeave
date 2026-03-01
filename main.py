@@ -1,19 +1,22 @@
 import flet as ft
 from datetime import date
 from view import LeaveCalendarView
-from model import LeaveEntry, LeaveModel, LeaveRepository
+from model import LeaveEntry, LeaveModel, LeaveRepository, EmployeeRepository
 
 # ---- Conroller ---- This class will handle the user interactions and update the model and view accordingly
 class CalendarController:
-    def __init__(self, model: LeaveModel, view: LeaveCalendarView, repository: LeaveRepository):
+    def __init__(self, model: LeaveModel, view: LeaveCalendarView, 
+                 leave_repo: LeaveRepository, employee_repo: EmployeeRepository):
         self.model = model
         self.view = view
-        self.repo = repository
+        self.leave = leave_repo
+        self.employees = employee_repo
         self.view.set_controller(self)
         self.refresh()
 
     def refresh(self):
-        self.view.render_calendar(self.model.year, self.model.month, self.model.leave_entries)
+        self.view.render_calendar(self.model.year, self.model.month, 
+                                  self.model.leave_entries, self.model.employees)
 
     def toggle_leave(self, d: date):
         entry = LeaveEntry(employee_id=self.model.current_employee_id, 
@@ -21,9 +24,9 @@ class CalendarController:
                            duration=self.model.selected_duration)
         
         if self.model.toggle_date(d):   # Returns true if leave entry was added, false if removed
-            self.repo.add_entry(d, self.model.current_employee_id, self.model.selected_leave_type, self.model.selected_duration)
+            self.leave.add_entry(d, self.model.current_employee_id, self.model.selected_leave_type, self.model.selected_duration)
         else:
-            self.repo.remove_entry(d, self.model.current_employee_id)
+            self.leave.remove_entry(d, self.model.current_employee_id)
         self.refresh()
 
     def prev(self):
@@ -45,17 +48,11 @@ class CalendarController:
 #           Controller -- handles user interactions and updates the model and view
 def main(page: ft.Page):
 
-    # Hard code until table working
-    employees = [
-        {"id": 1, "name": "Phil"},
-        {"id": 2, "name": "Alice"},
-        {"id": 3, "name": "Bob"},
-    ]
-
-    # Connect up the respository to load existing leave dates from the database
-    repo = LeaveRepository()
-
-    existing_leave_entries = repo.load_entries(1) # Load leave entries for employee with id 1 (Phil)
+    # Connect up the respository (database) and load existing leave entries for the employee(s)
+    leave_repo = LeaveRepository()
+    emp_repo = EmployeeRepository()
+    employees = emp_repo.load_employees() # Load employee list from database
+    existing_leave_entries = leave_repo.load_entries(employees) # Load leave entries for first employee
 
     # Create the leave calendar model
     model = LeaveModel(employees=employees, leave_entries=existing_leave_entries)
@@ -64,7 +61,7 @@ def main(page: ft.Page):
     view = LeaveCalendarView(page)
 
     # Create the controller and pass the model and view to it
-    controller = CalendarController(model, view, repo)
+    controller = CalendarController(model, view, leave_repo, emp_repo)
 
 # App entry point
 if __name__ == "__main__":

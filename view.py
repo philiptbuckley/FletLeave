@@ -14,25 +14,20 @@ class LeaveCalendarView:
         self.calendar_grid = ft.Column()
         self.selected_text = ft.Text()
 
-        # Just until we get the database table done, we'll hardcode some employee options here
-        employees = [
-            {"id": 1, "name": "Phil"},
-            {"id": 2, "name": "Alice"},
-            {"id": 3, "name": "Bob"},
-        ]
-        self.employee = ft.Dropdown(
-            options=[ft.dropdown.Option(str(emp["id"]), emp["name"]) for emp in employees],
+        # Employee drop down - will be populated with employee names and IDs from the model
+        self.employeeDrop = ft.Dropdown(
             on_select=lambda e: self._employee_selected(e),
-            value=str(employees[0]["id"]),
-            align=ft.Alignment.TOP_LEFT
+            align=ft.Alignment.TOP_LEFT,
+            value=None,
+            hint_text="Select Employee",
+            label="Employee"
         )
 
         # Build up the nav row comprising of employee selector, month/year header and navigation buttons
         self.nav = ft.Row(
             [
                 ft.Column(controls=[ft.Row([
-                        ft.Text(value="Employee", weight="bold"), 
-                        self.employee])], expand=True),  # Employee selector
+                        self.employeeDrop])], expand=True),  # Employee selector
                 ft.Column(controls=[ft.Row([
                         ft.IconButton(ft.Icons.ARROW_BACK, on_click=self.prev_clicked),
                         self.header,
@@ -70,10 +65,13 @@ class LeaveCalendarView:
         self.view_mode = view
 
     def _employee_selected(self, e):
-        self.controller.change_employee(int(self.employee.value))
+        self.controller.change_employee(int(self.employeeDrop.value))
 
     # ---- Render methods ----
-    def render_calendar(self, year, month, leave_entries):
+    def render_calendar(self, year, month, leave_entries, employees):
+
+        # Update employee dropdown options based on the list of employees in the model
+        self.employeeDrop.options=[ft.dropdown.Option(str(emp["id"]), emp["name"]) for emp in employees]
 
         self.calendar_grid.controls.clear()
         self.header.value = f"{calendar.month_name[month]} {year}"
@@ -100,7 +98,10 @@ class LeaveCalendarView:
                     row.controls.append(ft.Container(width=60, height=40))
                 else:
                     d = date(year, month, day)
-                    is_selected = self.controller.model.get_entries_for_day(int(self.employee.value), d)
+                    if self.employeeDrop.value is not None:
+                        is_selected = self.controller.model.get_entries_for_day(int(self.employeeDrop.value), d)
+                    else:
+                        is_selected = False
 
                     row.controls.append(
                         ft.Container(
@@ -116,11 +117,14 @@ class LeaveCalendarView:
             self.calendar_grid.controls.append(row)
 
         # Update the list of booked leave entries for the selected employee
-        employee_leave_entries = [e for e in leave_entries if e.employee_id == int(self.employee.value) and e.leave_date.month == month and e.leave_date.year == year]
-        if employee_leave_entries:
-            sorted_entries = sorted(employee_leave_entries, key=lambda e: e.leave_date)
-            self.selected_text.value += "\n".join([f"{e.leave_date}: {e.leave_type.value} ({e.duration.value})" for e in sorted_entries])
+        if self.employeeDrop.value is not None:
+            employee_leave_entries = [e for e in leave_entries if e.employee_id == int(self.employeeDrop.value) and 
+                                      e.leave_date.month == month and e.leave_date.year == year]
+            if employee_leave_entries:
+                sorted_entries = sorted(employee_leave_entries, key=lambda e: e.leave_date)
+                self.selected_text.value += "\n".join([f"{e.leave_date}: {e.leave_type.value} ({e.duration.value})" for e in sorted_entries])
+            else:
+                self.selected_text.value += "No leave booked"
         else:
-            self.selected_text.value += "No leave booked"
-
+            self.selected_text.value = "Please select an employee to view booked leave"
         self.page.update()
