@@ -13,20 +13,14 @@ additional level of abstraction from the model to a repository
 so that this can easily be replaced with a proper database in 
 the future.
 
-   _______         ____________      ________
-  | Model |  ←→   | Repository | ←→ | SQLite |
-   _______         ____________      ________
+   Model   ←→    Repository  ←→  SQLite 
  
       ↑
- ____________  
-| Controller |
- ____________  
+ Controller 
   
       ↑
 
-    ______
-   | View |
-    ______
+    View 
 
 It's not finished, but it works with a simple calendar and
 SQLite database to persist the data. It supports multiple
