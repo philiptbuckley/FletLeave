@@ -1,6 +1,33 @@
 import flet as ft
 import calendar
 from datetime import date
+from model import LeaveType, LeaveDuration
+
+class GroupBox(ft.Container):
+    def __init__(self, title: str, content: ft.Control, width=None):
+        super().__init__()
+
+        self.content = ft.Column(
+            spacing=0,
+            controls=[
+                # Title
+                ft.Container(
+                    content=ft.Text(title, weight=ft.FontWeight.BOLD),
+                    padding=ft.padding.only(left=8, right=8),
+                ),
+
+                # Box content
+                ft.Container(
+                    content=content,
+                    padding=15,
+                    border=ft.border.all(1, ft.Colors.BLACK),
+                    border_radius=8,
+                    expand=False,
+                ),
+            ],
+        )
+
+        self.width = width
 
 # This is the view class that manages all the UI rendering and user interactions
 class LeaveCalendarView:
@@ -24,7 +51,17 @@ class LeaveCalendarView:
         )
 
         # Build up the nav row comprising of employee selector, month/year header and navigation buttons
-        self.nav = ft.Row(
+        # and the view selector buttons and store them as instance variables so we can update them later when rendering the calendar
+        self.nav, self.view_mode = self.build_nav()
+
+        # Add the controls onto the page
+        page.add(self.nav, self.calendar_grid, self.view_mode, ft.Divider(), self.selected_text)
+
+        # Prepare leave type and duration dialog (reused for all day clicks)
+        self.leave_dialog = self.build_leave_dialog()
+
+    def build_nav(self):
+        nav = ft.Row(
             [
                 ft.Column(controls=[ft.Row([
                         self.employeeDrop])], expand=True),  # Employee selector
@@ -38,7 +75,7 @@ class LeaveCalendarView:
             alignment=ft.MainAxisAlignment.CENTER,
         )
 
-        self.view_mode = ft.Row(
+        view_mode = ft.Row(
             [
                 ft.IconButton(ft.Icons.CALENDAR_VIEW_DAY, on_click=lambda e: self.set_view_mode(e, "day"), tooltip="Day View"),
                 ft.IconButton(ft.Icons.CALENDAR_VIEW_WEEK, on_click=lambda e: self.set_view_mode(e, "week"), tooltip="Week View"),
@@ -47,8 +84,40 @@ class LeaveCalendarView:
             ],
             alignment=ft.MainAxisAlignment.CENTER,
         )
+        return nav, view_mode
 
-        page.add(self.nav, self.calendar_grid, self.view_mode, ft.Divider(), self.selected_text)
+    def build_leave_dialog(self):
+        # Dialog / popup for selecting leave type and duration (reused for all day clicks)
+        self._dialog_day = None
+
+        # RadioGroups for leave type and duration; we'll re-use these in the dialog
+        self.leave_type_group = ft.RadioGroup(
+            content=ft.Column([ft.Radio(label=lt.value.name, value=lt.name) for lt in LeaveType], tight=True)
+        )
+        self.leave_duration_group = ft.RadioGroup(
+            content=ft.Column([ft.Radio(label=d.value, value=d.name) for d in LeaveDuration], tight=True)
+        )
+
+        return ft.AlertDialog(
+            content=ft.Column(controls = [
+                ft.Row([
+                    GroupBox("Leave Type", self.leave_type_group, width=200),
+                    ft.Column(controls=[
+                        GroupBox("Duration", self.leave_duration_group, width=200),
+                        ft.TextField(label="Number of Days", value="1", width=200, 
+                                     label_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
+                                     border=ft.border.all(1, ft.Colors.GREY_400)),
+                    ], expand = False, alignment=ft.MainAxisAlignment.START, spacing=35), 
+                ]),
+                ft.TextField(label="Description or comments", hint_text="Holiday in Ibiza", width=410),
+            ]
+            ),
+            actions=[
+                ft.TextButton("Cancel", on_click=self._close_dialog),
+                ft.TextButton("Clear", on_click=self._clear_leave),
+                ft.TextButton("Apply", on_click=self._apply_leave),
+            ],
+        )
 
     # Function to attach the controller to the view
     def set_controller(self, controller):
@@ -99,9 +168,13 @@ class LeaveCalendarView:
                 else:
                     d = date(year, month, day)
                     if self.employeeDrop.value is not None:
-                        is_selected = self.controller.model.get_entries_for_day(int(self.employeeDrop.value), d)
+                        entry_exists = self.controller.model.get_entries_for_day(int(self.employeeDrop.value), d)
+                        if entry_exists:
+                            bgcolour = entry_exists.leave_type.value.color
+                        else:
+                            bgcolour = None
                     else:
-                        is_selected = False
+                        bgcolour = None
 
                     row.controls.append(
                         ft.Container(
@@ -109,9 +182,9 @@ class LeaveCalendarView:
                             width=60,
                             height=40,
                             alignment=ft.Alignment.CENTER,
-                            bgcolor=ft.Colors.BLUE_200 if is_selected else None,
+                            bgcolor=bgcolour,
                             border=ft.Border.all(1, ft.Colors.GREY_300),
-                            on_click=lambda e, day_date=d: self.controller.toggle_leave(day_date),
+                            on_click=lambda e, day_date=d: self._open_leave_dialog(day_date),
                         )
                     )
             self.calendar_grid.controls.append(row)
@@ -122,9 +195,57 @@ class LeaveCalendarView:
                                       e.leave_date.month == month and e.leave_date.year == year]
             if employee_leave_entries:
                 sorted_entries = sorted(employee_leave_entries, key=lambda e: e.leave_date)
-                self.selected_text.value += "\n".join([f"{e.leave_date}: {e.leave_type.value} ({e.duration.value})" for e in sorted_entries])
+                self.selected_text.value += "\n".join([f"{e.leave_date}: {e.leave_type.value.name} ({e.duration.value})" for e in sorted_entries])
             else:
                 self.selected_text.value += "No leave booked"
         else:
             self.selected_text.value = "Please select an employee to view booked leave"
+        self.page.update()
+
+    # ---- Leave dialog handlers ----
+    def _open_leave_dialog(self, d: date):
+        # debug: log to console when dialog opened
+        print(f"_open_leave_dialog called for {d}")
+        self._dialog_day = d
+        # Pre-select existing values if an entry exists
+        entry = None
+        if self.employeeDrop.value is not None:
+            entry = self.controller.model.get_entries_for_day(int(self.employeeDrop.value), d)
+
+        if entry:
+            selected_type = entry.leave_type.name
+            selected_dur = entry.duration.name
+        else:
+            selected_type = self.controller.model.selected_leave_type.name
+            selected_dur = self.controller.model.selected_duration.name
+
+        # set the radio group selections
+        self.leave_type_group.value = selected_type
+        self.leave_duration_group.value = selected_dur
+
+        # Flet sometimes requires show_dialog to actually render the dialog
+        self.leave_dialog.open = True
+        self.page.show_dialog(self.leave_dialog)
+        # page.update() may not be needed but safe
+        self.page.update()
+
+    def _clear_leave(self, e):
+        if self._dialog_day:
+            self.controller.clear_leave_for_day(self._dialog_day)
+        self._close_dialog()
+
+    def _apply_leave(self, e):
+        # read the values from the radio groups
+        selected_type_name = self.leave_type_group.value
+        selected_dur_name = self.leave_duration_group.value
+
+        if selected_type_name and selected_dur_name and self._dialog_day:
+            lt = LeaveType[selected_type_name]
+            du = LeaveDuration[selected_dur_name]
+            self.controller.set_leave_for_day(self._dialog_day, lt, du)
+
+        self._close_dialog()
+
+    def _close_dialog(self, e=None):
+        self.leave_dialog.open = False
         self.page.update()

@@ -1,4 +1,5 @@
 import sqlite3
+import flet as ft
 from datetime import date
 from enum import Enum
 from dataclasses import dataclass
@@ -10,12 +11,17 @@ class LeaveEntry:
     leave_type: LeaveType
     duration: LeaveDuration
 
+class LeaveTypeInfo:
+    def __init__(self, name, color):
+        self.name = name
+        self.color = color
+
 class LeaveType(Enum):
-    PUBLIC = "Public Holiday"
-    HOLIDAY = "Holiday"
-    SHUTDOWN = "Shutdown"
-    SICK = "Sick"
-    UNPAID = "Unpaid"
+    PUBLIC = LeaveTypeInfo("Public Holiday", ft.Colors.AMBER_700)
+    HOLIDAY = LeaveTypeInfo("Holiday", ft.Colors.YELLOW_200)
+    SHUTDOWN = LeaveTypeInfo("Shutdown", ft.Colors.BROWN_600)
+    SICK = LeaveTypeInfo("Sick", ft.Colors.PINK_200)
+    UNPAID = LeaveTypeInfo("Unpaid", ft.Colors.GREY_200)
 
 class LeaveDuration(Enum):
     FULL = "Full day"
