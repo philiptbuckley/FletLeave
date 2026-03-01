@@ -1,6 +1,7 @@
-# Dusty Ape Leave Tracker
+# Leave Tracker
 
-This is an attempt to build a leave of absense app for Dusty Ape
+This is an attempt to build a leave of absense app for my small 
+business while I learn flet at the same time
 
 ## Design
 It's written in python and flet so that it could potentially be 
@@ -27,12 +28,13 @@ the future.
    | View |
     ______
 
-So far it just operates a calendar and allows the user to switch
-views (day/week/month/year) and select dates. A summary of all
-sleected dates is displayed underneath the calendar.
+It's not finished, but it works with a simple calendar and
+SQLite database to persist the data. It supports multiple
+employees and leave types that suit my business.
 
 Still to do:
-- [ ] Implement staff
-- [ ] Implement leave types
+- [ ] Implement UK leave allowances
+- [ ] Implement multiple days leave booking
+- [ ] Summarise all leave for all staff
 - [ ] Implement regular work days for staff so that it can rota
 
