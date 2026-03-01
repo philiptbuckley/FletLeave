@@ -14,11 +14,31 @@ class LeaveCalendarView:
         self.calendar_grid = ft.Column()
         self.selected_text = ft.Text()
 
+        # Just until we get the database table done, we'll hardcode some employee options here
+        employees = [
+            {"id": 1, "name": "Phil"},
+            {"id": 2, "name": "Alice"},
+            {"id": 3, "name": "Bob"},
+        ]
+        self.employee = ft.Dropdown(
+            options=[ft.dropdown.Option(str(emp["id"]), emp["name"]) for emp in employees],
+            on_select=lambda e: self._employee_selected(e),
+            value=str(employees[0]["id"]),
+            align=ft.Alignment.TOP_LEFT
+        )
+
+        # Build up the nav row comprising of employee selector, month/year header and navigation buttons
         self.nav = ft.Row(
             [
-                ft.IconButton(ft.Icons.ARROW_BACK, on_click=self.prev_clicked),
-                self.header,
-                ft.IconButton(ft.Icons.ARROW_FORWARD, on_click=self.next_clicked),
+                ft.Column(controls=[ft.Row([
+                        ft.Text(value="Employee", weight="bold"), 
+                        self.employee])], expand=True),  # Employee selector
+                ft.Column(controls=[ft.Row([
+                        ft.IconButton(ft.Icons.ARROW_BACK, on_click=self.prev_clicked),
+                        self.header,
+                        ft.IconButton(ft.Icons.ARROW_FORWARD, on_click=self.next_clicked),
+                    ], alignment=ft.MainAxisAlignment.CENTER)], expand=True),
+                ft.Column(controls=[ft.Container(expand=True)], expand=True),  # Spacer
             ],
             alignment=ft.MainAxisAlignment.CENTER,
         )
@@ -49,8 +69,11 @@ class LeaveCalendarView:
     def set_view_mode(self, e, view: str):
         self.view_mode = view
 
+    def _employee_selected(self, e):
+        self.controller.change_employee(int(self.employee.value))
+
     # ---- Render methods ----
-    def render_calendar(self, year, month, leave_dates):
+    def render_calendar(self, year, month, leave_entries):
 
         self.calendar_grid.controls.clear()
         self.header.value = f"{calendar.month_name[month]} {year}"
@@ -68,23 +91,16 @@ class LeaveCalendarView:
         cal = calendar.Calendar(firstweekday=0)
         month_days = cal.monthdayscalendar(year, month)
 
-        self.selected_text.value = "Booked leave days:\n" + "\n"
+        self.selected_text.value = "Booked leave:\n" + "\n"
 
-        booked_leave = False
         for week in month_days:
             row = ft.Row(alignment=ft.MainAxisAlignment.CENTER)
             for day in week:
                 if day == 0:
                     row.controls.append(ft.Container(width=60, height=40))
                 else:
-                    day_date = date(year, month, day)
-
-                    if day_date in leave_dates:
-                        background_color = ft.Colors.BLUE_200
-                        self.selected_text.value += f"{day_date.strftime('%Y-%m-%d')}\n"
-                        booked_leave = True
-                    else:
-                        background_color = None
+                    d = date(year, month, day)
+                    is_selected = self.controller.model.get_entries_for_day(int(self.employee.value), d)
 
                     row.controls.append(
                         ft.Container(
@@ -92,14 +108,19 @@ class LeaveCalendarView:
                             width=60,
                             height=40,
                             alignment=ft.Alignment.CENTER,
-                            bgcolor=background_color,
+                            bgcolor=ft.Colors.BLUE_200 if is_selected else None,
                             border=ft.Border.all(1, ft.Colors.GREY_300),
-                            on_click=lambda e, d=day_date: self.controller.toggle_leave(d),
+                            on_click=lambda e, day_date=d: self.controller.toggle_leave(day_date),
                         )
                     )
             self.calendar_grid.controls.append(row)
 
-        if not booked_leave:
+        # Update the list of booked leave entries for the selected employee
+        employee_leave_entries = [e for e in leave_entries if e.employee_id == int(self.employee.value) and e.leave_date.month == month and e.leave_date.year == year]
+        if employee_leave_entries:
+            sorted_entries = sorted(employee_leave_entries, key=lambda e: e.leave_date)
+            self.selected_text.value += "\n".join([f"{e.leave_date}: {e.leave_type.value} ({e.duration.value})" for e in sorted_entries])
+        else:
             self.selected_text.value += "No leave booked"
 
         self.page.update()

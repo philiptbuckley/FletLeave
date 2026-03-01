@@ -1,20 +1,64 @@
 import sqlite3
 from datetime import date
+from enum import Enum
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class LeaveEntry:
+    employee_id: int
+    leave_date: date
+    leave_type: LeaveType
+    duration: LeaveDuration
+
+class LeaveType(Enum):
+    PUBLIC = "Public Holiday"
+    HOLIDAY = "Holiday"
+    SHUTDOWN = "Shutdown"
+    SICK = "Sick"
+    UNPAID = "Unpaid"
+
+class LeaveDuration(Enum):
+    FULL = "Full day"
+    AM = "Morning"
+    PM = "Afternoon"
 
 # This is the model class and the data and business logic will be handled here
 class LeaveModel:
-    def __init__(self, leave_dates=None):
+    def __init__(self, employees, leave_entries=None):
         today = date.today()
         self.year = today.year
         self.month = today.month
-        self.leave_days = leave_dates or set()
+        #self.employees = employees
+        self.current_employee_id = employees[0]["id"]
+        self.selected_leave_type = LeaveType.HOLIDAY
+        self.selected_duration = LeaveDuration.FULL
+        self.leave_entries = leave_entries or []
+
+    # Lookup existing leave entries for the current employee and given day
+    def get_entries_for_day(self, employee_id, day):
+        for entry in self.leave_entries:
+            if entry.employee_id == employee_id and entry.leave_date == day:
+                return entry
+        return None
+
+    def add_leave(self, entry: LeaveEntry):
+        self.leave_entries.append(entry)
+
+    def remove_leave(self, employee_id, day):
+        self.leave_entries = [
+            e for e in self.leave_entries
+            if not (e.employee_id == employee_id and e.leave_date == day)
+        ]    
 
     def toggle_date(self, d: date):
-        if d in self.leave_days:
-            self.leave_days.remove(d)
+        if self.get_entries_for_day(self.current_employee_id, d):
+            self.remove_leave(self.current_employee_id, d)
             return False # Removed
         else:
-            self.leave_days.add(d)
+            entry = LeaveEntry(employee_id=self.current_employee_id, 
+                               leave_date=d, leave_type=self.selected_leave_type, 
+                               duration=self.selected_duration)
+            self.add_leave(entry)
             return True # Added
 
     # Backward navigation
@@ -42,26 +86,30 @@ class LeaveRepository:
 
     def _create_table(self):
         self.conn.execute("""
-            CREATE TABLE IF NOT EXISTS leave_dates (
-                leave_date TEXT PRIMARY KEY
-            )
+            CREATE TABLE IF NOT EXISTS leave_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_id INTEGER,
+                leave_date TEXT,
+                leave_type TEXT,
+                duration TEXT)
         """)
+                # FOREIGN KEY (employee_id) REFERENCES employees(id)
         self.conn.commit()
 
-    def load_dates(self):
-        cursor = self.conn.execute("SELECT leave_date FROM leave_dates")
-        return {date.fromisoformat(row[0]) for row in cursor.fetchall()}
+    def load_entries(self, employee_id):
+        cursor = self.conn.execute("SELECT employee_id, leave_date, leave_type, duration FROM leave_entries WHERE employee_id = ?", (employee_id,))
+        return [LeaveEntry(employee_id=row[0], leave_date=date.fromisoformat(row[1]), leave_type=LeaveType[row[2]], duration=LeaveDuration[row[3]]) for row in cursor.fetchall()]
 
-    def add_date(self, d: date):
+    def add_entry(self, d: date, employee_id, leave_type, duration):
         self.conn.execute(
-            "INSERT OR IGNORE INTO leave_dates (leave_date) VALUES (?)",
-            (d.isoformat(),)
+            "INSERT OR IGNORE INTO leave_entries (employee_id, leave_date, leave_type, duration) VALUES (?, ?, ?, ?)",
+            (employee_id, d.isoformat(), leave_type.name, duration.name)
         )
         self.conn.commit()
 
-    def remove_date(self, d: date):
+    def remove_entry(self, d: date, employee_id):
         self.conn.execute(
-            "DELETE FROM leave_dates WHERE leave_date = ?",
-            (d.isoformat(),)
+            "DELETE FROM leave_entries WHERE leave_date = ? AND employee_id = ?",
+            (d.isoformat(), employee_id)
         )
         self.conn.commit()
