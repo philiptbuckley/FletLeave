@@ -18,15 +18,15 @@ class LeaveTypeInfo:
 
 class LeaveType(Enum):
     PUBLIC = LeaveTypeInfo("Public Holiday", ft.Colors.AMBER_700)
-    HOLIDAY = LeaveTypeInfo("Holiday", ft.Colors.YELLOW_200)
+    HOLIDAY = LeaveTypeInfo("Holiday", ft.Colors.YELLOW_600)
     SHUTDOWN = LeaveTypeInfo("Shutdown", ft.Colors.BROWN_600)
     SICK = LeaveTypeInfo("Sick", ft.Colors.PINK_200)
     UNPAID = LeaveTypeInfo("Unpaid", ft.Colors.GREY_200)
 
 class LeaveDuration(Enum):
     FULL = "Full day"
-    AM = "Morning"
-    PM = "Afternoon"
+    AM = "Morning only"
+    PM = "Afternoon only"
 
 # This is the model class and the data and business logic will be handled here
 class LeaveModel:

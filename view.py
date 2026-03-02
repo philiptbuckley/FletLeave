@@ -136,6 +136,44 @@ class LeaveCalendarView:
     def _employee_selected(self, e):
         self.controller.change_employee(int(self.employeeDrop.value))
 
+    def create_day_cell(self, day_number, leave_type: LeaveType, leave_duration: LeaveDuration=None):
+        bg_gradient = None
+        bg_color = leave_type.value.color if leave_type else ft.Colors.WHITE
+        if leave_duration == LeaveDuration.AM:
+            bg_gradient = ft.LinearGradient(
+                begin=ft.Alignment.TOP_RIGHT,
+                end=ft.Alignment.BOTTOM_LEFT,
+                colors=[ft.Colors.WHITE, bg_color],
+                stops=[0.5, 0.5]
+            )
+        elif leave_duration == LeaveDuration.PM:
+            bg_gradient = ft.LinearGradient(
+                begin=ft.Alignment.TOP_RIGHT,
+                end=ft.Alignment.BOTTOM_LEFT,
+                colors=[bg_color, ft.Colors.WHITE],
+                stops=[0.5, 0.5]
+            )
+        elif leave_duration == LeaveDuration.FULL:
+            ft.Container(
+                content=ft.Text(str(day_number)),
+                width=60,
+                height=60,
+                alignment=ft.Alignment.CENTER,
+                border=ft.border.all(1, bg_color),
+                bgcolor=bg_color,
+                gradient=bg_gradient,
+            )
+
+        return ft.Container(
+            content=ft.Text(str(day_number)),
+            width=60,
+            height=60,
+            alignment=ft.Alignment.CENTER,
+            border=ft.border.all(1, bg_color),
+            bgcolor=bg_color,
+            gradient=bg_gradient,
+        )
+
     # ---- Render methods ----
     def render_calendar(self, year, month, leave_entries, employees):
 
@@ -163,6 +201,7 @@ class LeaveCalendarView:
         for week in month_days:
             row = ft.Row(alignment=ft.MainAxisAlignment.CENTER)
             for day in week:
+                entry_exists = None
                 if day == 0:
                     row.controls.append(ft.Container(width=60, height=40))
                 else:
@@ -176,17 +215,12 @@ class LeaveCalendarView:
                     else:
                         bgcolour = None
 
-                    row.controls.append(
-                        ft.Container(
-                            content=ft.Text(str(day)),
-                            width=60,
-                            height=40,
-                            alignment=ft.Alignment.CENTER,
-                            bgcolor=bgcolour,
-                            border=ft.Border.all(1, ft.Colors.GREY_300),
-                            on_click=lambda e, day_date=d: self._open_leave_dialog(day_date),
-                        )
-                    )
+                    cell = self.create_day_cell(
+                                        day, 
+                                        entry_exists.leave_type if entry_exists else None, 
+                                        entry_exists.duration if entry_exists else None)
+                    cell.on_click = lambda e, day_date=d: self._open_leave_dialog(day_date)
+                    row.controls.append(cell)
             self.calendar_grid.controls.append(row)
 
         # Update the list of booked leave entries for the selected employee
@@ -204,13 +238,15 @@ class LeaveCalendarView:
 
     # ---- Leave dialog handlers ----
     def _open_leave_dialog(self, d: date):
-        # debug: log to console when dialog opened
-        print(f"_open_leave_dialog called for {d}")
+
+        # Can't create or view leave entries if no employee selected - show a message and return early
+        if self.employeeDrop.value is None:
+            self.page.show_dialog(ft.SnackBar(content=ft.Text("Please select an employee to create or edit leave")))
+            return
+        
         self._dialog_day = d
         # Pre-select existing values if an entry exists
-        entry = None
-        if self.employeeDrop.value is not None:
-            entry = self.controller.model.get_entries_for_day(int(self.employeeDrop.value), d)
+        entry = self.controller.model.get_entries_for_day(int(self.employeeDrop.value), d)
 
         if entry:
             selected_type = entry.leave_type.name
