@@ -55,22 +55,32 @@ class LeaveCalendarView:
         self.nav, self.view_mode = self.build_nav()
 
         # Add the controls onto the page
-        page.add(self.nav, self.calendar_grid, self.view_mode, ft.Divider(), self.selected_text)
+        page.add(ft.Row([
+            ft.Column(self.employeeDrop, width=200),
+            ft.Column(controls=[self.nav, self.calendar_grid], expand=True, width=400),
+            ft.Column(controls=[ft.Container(expand=False), self.build_key()],width=200)
+        ], expand=True),ft.Divider(), self.selected_text)
 
         # Prepare leave type and duration dialog (reused for all day clicks)
         self.leave_dialog = self.build_leave_dialog()
 
+    def build_key(self):
+        self.key_column = ft.Column(controls=[ft.Text("Key:", weight=ft.FontWeight.BOLD)], expand=True, alignment=ft.Alignment.TOP_RIGHT, )
+        for lt in LeaveType:
+            self.key_column.controls.append(
+                ft.Row([
+                    ft.Container(width=20, height=20, bgcolor=lt.value.color, border=ft.border.all(1, lt.value.color)),
+                        ft.Text(lt.value.name, text_align=ft.TextAlign.RIGHT)
+                    ], alignment=ft.Alignment.TOP_RIGHT)
+        )
+        return self.key_column
+
     def build_nav(self):
         nav = ft.Row(
             [
-                ft.Column(controls=[ft.Row([
-                        self.employeeDrop])], expand=True),  # Employee selector
-                ft.Column(controls=[ft.Row([
-                        ft.IconButton(ft.Icons.ARROW_BACK, on_click=self.prev_clicked),
-                        self.header,
-                        ft.IconButton(ft.Icons.ARROW_FORWARD, on_click=self.next_clicked),
-                    ], alignment=ft.MainAxisAlignment.CENTER)], expand=True),
-                ft.Column(controls=[ft.Container(expand=True)], expand=True),  # Spacer
+                ft.IconButton(ft.Icons.ARROW_BACK, on_click=self.prev_clicked),
+                self.header,
+                ft.IconButton(ft.Icons.ARROW_FORWARD, on_click=self.next_clicked),
             ],
             alignment=ft.MainAxisAlignment.CENTER,
         )
