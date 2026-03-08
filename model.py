@@ -40,12 +40,26 @@ class LeaveModel:
         self.selected_duration = LeaveDuration.FULL
         self.leave_entries = leave_entries or []
 
-    # Lookup existing leave entries for the current employee and given day
-    def get_entries_for_day(self, employee_id, day):
+    # Lookup existing leave entries with optional employee filter (if employee_id is None, returns all entries for the day)
+    def get_entries_for_day(self, day, employee_id=None):
+        entries = self.get_leave_entries(employee_id=employee_id, from_date=day, to_date=day)
+        if entries:
+            return entries[0] # Assuming only one entry per employee/day, return the first match
+        else:
+            return None
+    
+    # Return all entries for an optional employee with date range filter
+    def get_leave_entries(self, employee_id=None, from_date=None, to_date=None):
+        entries = []
         for entry in self.leave_entries:
-            if entry.employee_id == employee_id and entry.leave_date == day:
-                return entry
-        return None
+            if employee_id is not None and entry.employee_id != employee_id:
+                continue
+            if from_date is not None and entry.leave_date < from_date:
+                continue
+            if to_date is not None and entry.leave_date > to_date:
+                continue
+            entries.append(entry)
+        return entries
 
     def add_leave(self, entry: LeaveEntry):
         self.leave_entries.append(entry)
@@ -80,6 +94,12 @@ class LeaveModel:
         if self.month == 13:
             self.month = 1
             self.year += 1
+
+    def get_employee_name(self, employee_id):
+        for emp in self.employees:
+            if emp["id"] == employee_id:
+                return emp["name"]
+        return "Unknown"
 
 class EmployeeRepository:
     def __init__(self, db_path="leave_calendar.db"):
@@ -118,7 +138,7 @@ class LeaveRepository:
                 # FOREIGN KEY (employee_id) REFERENCES employees(id)
         self.conn.commit()
 
-    def load_entries(self, employee_id):
+    def load_entries(self):
         cursor = self.conn.execute("SELECT employee_id, leave_date, leave_type, duration FROM leave_entries")
         return [LeaveEntry(employee_id=row[0], leave_date=date.fromisoformat(row[1]), leave_type=LeaveType[row[2]], duration=LeaveDuration[row[3]]) for row in cursor.fetchall()]
 

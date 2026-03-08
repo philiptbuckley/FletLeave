@@ -41,7 +41,7 @@ class LeaveCalendarView:
         self.calendar_grid = ft.Column()
         self.selected_text = ft.Text()
 
-        # Employee drop down - will be populated with employee names and IDs from the model
+        # Employee drop down - will be populated with employee names and IDs from the model when rendering the calendar
         self.employeeDrop = ft.Dropdown(
             on_select=lambda e: self._employee_selected(e),
             align=ft.Alignment.TOP_LEFT,
@@ -206,7 +206,12 @@ class LeaveCalendarView:
         cal = calendar.Calendar(firstweekday=0)
         month_days = cal.monthdayscalendar(year, month)
 
-        self.selected_text.value = "Booked leave:\n" + "\n"
+        self.selected_text.value = f"Booked leave for {self.employeeDrop.text if self.employeeDrop.value is not None else 'All Employees'}:\n" + "\n"
+
+        # Filter the list of leave entries by employee if selected in dropdown
+        if self.employeeDrop.value is not None:
+            leave_entries = list(filter(lambda e: e.employee_id == int(self.employeeDrop.value), 
+                                        leave_entries))
 
         for week in month_days:
             row = ft.Row(alignment=ft.MainAxisAlignment.CENTER)
@@ -216,12 +221,11 @@ class LeaveCalendarView:
                     row.controls.append(ft.Container(width=60, height=40))
                 else:
                     d = date(year, month, day)
-                    if self.employeeDrop.value is not None:
-                        entry_exists = self.controller.model.get_entries_for_day(int(self.employeeDrop.value), d)
-                        if entry_exists:
-                            bgcolour = entry_exists.leave_type.value.color
-                        else:
-                            bgcolour = None
+                    # Filter the list of leave entries to find if there's an entry for this day (and employee if selected)
+                    day_entries = list(filter(lambda e: e.leave_date == d, leave_entries))
+                    if len(day_entries) > 0:
+                        entry_exists = day_entries[0] # Assuming only one entry per employee/day, take the first match
+                        bgcolour = entry_exists.leave_type.value.color
                     else:
                         bgcolour = None
 
@@ -233,17 +237,19 @@ class LeaveCalendarView:
                     row.controls.append(cell)
             self.calendar_grid.controls.append(row)
 
-        # Update the list of booked leave entries for the selected employee
-        if self.employeeDrop.value is not None:
-            employee_leave_entries = [e for e in leave_entries if e.employee_id == int(self.employeeDrop.value) and 
-                                      e.leave_date.month == month and e.leave_date.year == year]
-            if employee_leave_entries:
-                sorted_entries = sorted(employee_leave_entries, key=lambda e: e.leave_date)
-                self.selected_text.value += "\n".join([f"{e.leave_date}: {e.leave_type.value.name} ({e.duration.value})" for e in sorted_entries])
-            else:
-                self.selected_text.value += "No leave booked"
+        # Filter leave entries for this date range
+        leave_entries = filter(lambda e: e.leave_date.month == month and e.leave_date.year == year, leave_entries)
+        # Update the selected_text control to show the leave entries for the month
+        if leave_entries:
+            # Sort the entries by date
+            leave_entries = sorted(leave_entries, key=lambda e: e.leave_date)
+            for e in leave_entries:
+                emp_name = ""
+                if self.employeeDrop.value is None:
+                    emp_name = self.controller.get_employee_name(e.employee_id) + ":"
+                self.selected_text.value += f"{e.leave_date}: {emp_name} {e.leave_type.value.name} ({e.duration.value})\n"
         else:
-            self.selected_text.value = "Please select an employee to view booked leave"
+            self.selected_text.value += "No leave booked"
         self.page.update()
 
     # ---- Leave dialog handlers ----

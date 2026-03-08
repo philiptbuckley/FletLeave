@@ -60,6 +60,9 @@ class CalendarController:
         self.model.current_employee_id = employee_id
         self.refresh()
 
+    def get_employee_name(self, employee_id):
+        return self.model.get_employee_name(employee_id)
+
 # Main function to run the app
 # MVC design pattern
 #   Model -- handles the data and business logic
@@ -71,7 +74,7 @@ def main(page: ft.Page):
     leave_repo = LeaveRepository()
     emp_repo = EmployeeRepository()
     employees = emp_repo.load_employees() # Load employee list from database
-    existing_leave_entries = leave_repo.load_entries(employees) # Load leave entries for first employee
+    existing_leave_entries = leave_repo.load_entries() # Load all leave entries
 
     # Create the leave calendar model
     model = LeaveModel(employees=employees, leave_entries=existing_leave_entries)
@@ -80,7 +83,7 @@ def main(page: ft.Page):
     view = LeaveCalendarView(page)
 
     # Create the controller and pass the model and view to it
-    controller = CalendarController(model, view, leave_repo, emp_repo)
+    CalendarController(model, view, leave_repo, emp_repo)
 
 # App entry point
 if __name__ == "__main__":
