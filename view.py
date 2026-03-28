@@ -39,7 +39,7 @@ class LeaveCalendarView:
 
         self.header = ft.Text("", size=20, weight="bold")
         self.calendar_grid = ft.Column()
-        self.selected_text = ft.Text()
+        self.leave_summary = ft.Text()
 
         # Employee drop down - will be populated with employee names and IDs from the model when rendering the calendar
         self.employeeDrop = ft.Dropdown(
@@ -59,7 +59,7 @@ class LeaveCalendarView:
             ft.Column(self.employeeDrop, width=200),
             ft.Column(controls=[self.nav, self.calendar_grid], expand=True, width=400),
             ft.Column(controls=[ft.Container(expand=False), self.build_key()],width=200)
-        ], expand=True),ft.Divider(), self.selected_text)
+        ], expand=True),ft.Divider(), self.leave_summary)
 
         # Prepare leave type and duration dialog (reused for all day clicks)
         self.leave_dialog = self.build_leave_dialog()
@@ -176,8 +176,8 @@ class LeaveCalendarView:
 
         return ft.Container(
             content=ft.Text(str(day_number)),
-            width=60,
-            height=60,
+            width=50,
+            height=50,
             alignment=ft.Alignment.CENTER,
             border=ft.border.all(1, bg_color),
             bgcolor=bg_color,
@@ -206,7 +206,7 @@ class LeaveCalendarView:
         cal = calendar.Calendar(firstweekday=0)
         month_days = cal.monthdayscalendar(year, month)
 
-        self.selected_text.value = f"Booked leave for {self.employeeDrop.text if self.employeeDrop.value is not None else 'All Employees'}:\n" + "\n"
+        self.leave_summary.value = f"Booked leave for {self.employeeDrop.text if self.employeeDrop.value is not None else 'All Employees'}:\n" + "\n"
 
         # Filter the list of leave entries by employee if selected in dropdown
         if self.employeeDrop.value is not None:
@@ -218,7 +218,7 @@ class LeaveCalendarView:
             for day in week:
                 entry_exists = None
                 if day == 0:
-                    row.controls.append(ft.Container(width=60, height=40))
+                    row.controls.append(ft.Container(width=50, height=50))
                 else:
                     d = date(year, month, day)
                     # Filter the list of leave entries to find if there's an entry for this day (and employee if selected)
@@ -247,9 +247,9 @@ class LeaveCalendarView:
                 emp_name = ""
                 if self.employeeDrop.value is None:
                     emp_name = self.controller.get_employee_name(e.employee_id) + ":"
-                self.selected_text.value += f"{e.leave_date}: {emp_name} {e.leave_type.value.name} ({e.duration.value})\n"
+                self.leave_summary.value += f"{e.leave_date}: {emp_name} {e.leave_type.value.name} ({e.duration.value})\n"
         else:
-            self.selected_text.value += "No leave booked"
+            self.leave_summary.value += "No leave booked"
         self.page.update()
 
     # ---- Leave dialog handlers ----
