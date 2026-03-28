@@ -63,6 +63,9 @@ class CalendarController:
     def get_employee_name(self, employee_id):
         return self.model.get_employee_name(employee_id)
 
+    def get_employee_abbrev(self, employee_id):
+        return self.model.get_employee_abbrev(employee_id)
+
 # Main function to run the app
 # MVC design pattern
 #   Model -- handles the data and business logic

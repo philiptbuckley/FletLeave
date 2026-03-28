@@ -101,6 +101,19 @@ class LeaveModel:
                 return emp["name"]
         return "Unknown"
 
+    def get_employee_abbrev(self, employee_id):
+        for emp in self.employees:
+            if emp["id"] == employee_id:
+                abbrev = emp["abbrev"]
+                if abbrev is not None and abbrev.strip() != "":
+                    return abbrev
+                # If employee has two or more words in their name, use the first letter of the first two words as the abbreviation
+                if len(emp["name"].split()) >= 2:
+                    return "".join([word[0] for word in emp["name"].split()[:2]]).upper()
+                # Otherwise, use the first two letters of their name as the abbreviation
+                return emp["name"][:2].upper()
+        return "??"
+
 class EmployeeRepository:
     def __init__(self, db_path="leave_calendar.db"):
         self.conn = sqlite3.connect(db_path)
@@ -110,13 +123,14 @@ class EmployeeRepository:
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS employees (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT)
+                name TEXT,
+                abbrev CHAR(2))
         """)
         self.conn.commit()
 
     def load_employees(self):
-        cursor = self.conn.execute("SELECT id, name FROM employees")
-        return [{"id": row[0], "name": row[1]} for row in cursor.fetchall()]
+        cursor = self.conn.execute("SELECT id, name, abbrev FROM employees")
+        return [{"id": row[0], "name": row[1], "abbrev": row[2]} for row in cursor.fetchall()]
 
 # This class will handle the database interactions for storing and retrieving leave dates.
 # Keeping it separate from the model allows us to easily swap out the storage mechanism in 

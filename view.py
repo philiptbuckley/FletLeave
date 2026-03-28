@@ -32,6 +32,7 @@ class GroupBox(ft.Container):
 # This is the view class that manages all the UI rendering and user interactions
 class LeaveCalendarView:
     def __init__(self, page: ft.Page):
+        self.DAY_CELL_SIZE = 55
         self.page = page
         self.controller = None  # Will be set by the controller
         page.title = "Leave Tracker Calendar"
@@ -45,7 +46,7 @@ class LeaveCalendarView:
         self.employeeDrop = ft.Dropdown(
             on_select=lambda e: self._employee_selected(e),
             align=ft.Alignment.TOP_LEFT,
-            value=None,
+            value="all",
             hint_text="Select Employee",
             label="Employee"
         )
@@ -144,7 +145,10 @@ class LeaveCalendarView:
         self.view_mode = view
 
     def _employee_selected(self, e):
-        self.controller.change_employee(int(self.employeeDrop.value))
+        if self.employeeDrop.value == "all":
+            self.controller.change_employee(None)
+        else:
+            self.controller.change_employee(int(self.employeeDrop.value))
 
     def create_day_cell(self, day_number, leave_type: LeaveType, leave_duration: LeaveDuration=None):
         bg_gradient = None
@@ -176,8 +180,8 @@ class LeaveCalendarView:
 
         return ft.Container(
             content=ft.Text(str(day_number)),
-            width=50,
-            height=50,
+            width=self.DAY_CELL_SIZE,
+            height=self.DAY_CELL_SIZE,
             alignment=ft.Alignment.CENTER,
             border=ft.border.all(1, bg_color),
             bgcolor=bg_color,
@@ -188,7 +192,9 @@ class LeaveCalendarView:
     def render_calendar(self, year, month, leave_entries, employees):
 
         # Update employee dropdown options based on the list of employees in the model
-        self.employeeDrop.options=[ft.dropdown.Option(str(emp["id"]), emp["name"]) for emp in employees]
+        self.employeeDrop.options = [ft.dropdown.Option("all", "All Employees")] + [ft.dropdown.Option(str(emp["id"]), emp["name"]) for emp in employees]
+        # Add a separator option after the "All Employees" option for better UX
+        self.employeeDrop.options.insert(1, ft.dropdown.Option(None, "----------------", disabled=True))
 
         self.calendar_grid.controls.clear()
         self.header.value = f"{calendar.month_name[month]} {year}"
@@ -196,7 +202,7 @@ class LeaveCalendarView:
         # Weekday headers
         week_header = ft.Row(
             controls=[
-                ft.Container(content=ft.Text(day), width=60, alignment=ft.Alignment.CENTER)
+                ft.Container(content=ft.Text(day), width=self.DAY_CELL_SIZE, alignment=ft.Alignment.CENTER)
                     for day in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
             ],
             alignment=ft.MainAxisAlignment.CENTER
@@ -206,10 +212,10 @@ class LeaveCalendarView:
         cal = calendar.Calendar(firstweekday=0)
         month_days = cal.monthdayscalendar(year, month)
 
-        self.leave_summary.value = f"Booked leave for {self.employeeDrop.text if self.employeeDrop.value is not None else 'All Employees'}:\n" + "\n"
+        self.leave_summary.value = f"Booked leave for {self.employeeDrop.text if self.employeeDrop.value != 'all' else 'All Employees'}:\n" + "\n"
 
         # Filter the list of leave entries by employee if selected in dropdown
-        if self.employeeDrop.value is not None:
+        if self.employeeDrop.value != "all":
             leave_entries = list(filter(lambda e: e.employee_id == int(self.employeeDrop.value), 
                                         leave_entries))
 
@@ -218,7 +224,7 @@ class LeaveCalendarView:
             for day in week:
                 entry_exists = None
                 if day == 0:
-                    row.controls.append(ft.Container(width=50, height=50))
+                    row.controls.append(ft.Container(width=self.DAY_CELL_SIZE, height=self.DAY_CELL_SIZE))
                 else:
                     d = date(year, month, day)
                     # Filter the list of leave entries to find if there's an entry for this day (and employee if selected)
@@ -245,8 +251,8 @@ class LeaveCalendarView:
             leave_entries = sorted(leave_entries, key=lambda e: e.leave_date)
             for e in leave_entries:
                 emp_name = ""
-                if self.employeeDrop.value is None:
-                    emp_name = self.controller.get_employee_name(e.employee_id) + ":"
+                if self.employeeDrop.value == "all":
+                    emp_name = f"{self.controller.get_employee_name(e.employee_id)} ({self.controller.get_employee_abbrev(e.employee_id)})"
                 self.leave_summary.value += f"{e.leave_date}: {emp_name} {e.leave_type.value.name} ({e.duration.value})\n"
         else:
             self.leave_summary.value += "No leave booked"
@@ -256,7 +262,7 @@ class LeaveCalendarView:
     def _open_leave_dialog(self, d: date):
 
         # Can't create or view leave entries if no employee selected - show a message and return early
-        if self.employeeDrop.value is None:
+        if self.employeeDrop.value == "all":
             self.page.show_dialog(ft.SnackBar(content=ft.Text("Please select an employee to create or edit leave")))
             return
         
