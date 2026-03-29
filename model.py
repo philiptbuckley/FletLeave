@@ -10,6 +10,7 @@ class LeaveEntry:
     leave_date: date
     leave_type: LeaveType
     duration: LeaveDuration
+    description: str
 
 class LeaveTypeInfo:
     def __init__(self, name, color):
@@ -25,8 +26,8 @@ class LeaveType(Enum):
 
 class LeaveDuration(Enum):
     FULL = "Full day"
-    AM = "Morning only"
-    PM = "Afternoon only"
+    AM = "AM only"
+    PM = "PM only"
 
 # This is the model class and the data and business logic will be handled here
 class LeaveModel:
@@ -147,19 +148,20 @@ class LeaveRepository:
                 employee_id INTEGER,
                 leave_date TEXT,
                 leave_type TEXT,
-                duration TEXT)
+                duration TEXT,
+                description TEXT)
         """)
                 # FOREIGN KEY (employee_id) REFERENCES employees(id)
         self.conn.commit()
 
     def load_entries(self):
-        cursor = self.conn.execute("SELECT employee_id, leave_date, leave_type, duration FROM leave_entries")
-        return [LeaveEntry(employee_id=row[0], leave_date=date.fromisoformat(row[1]), leave_type=LeaveType[row[2]], duration=LeaveDuration[row[3]]) for row in cursor.fetchall()]
+        cursor = self.conn.execute("SELECT employee_id, leave_date, leave_type, duration, description FROM leave_entries")
+        return [LeaveEntry(employee_id=row[0], leave_date=date.fromisoformat(row[1]), leave_type=LeaveType[row[2]], duration=LeaveDuration[row[3]], description=row[4]) for row in cursor.fetchall()]
 
-    def add_entry(self, d: date, employee_id, leave_type, duration):
+    def add_entry(self, d: date, employee_id, leave_type, duration, description: str):
         self.conn.execute(
-            "INSERT OR IGNORE INTO leave_entries (employee_id, leave_date, leave_type, duration) VALUES (?, ?, ?, ?)",
-            (employee_id, d.isoformat(), leave_type.name, duration.name)
+            "INSERT OR IGNORE INTO leave_entries (employee_id, leave_date, leave_type, duration, description) VALUES (?, ?, ?, ?, ?)",
+            (employee_id, d.isoformat(), leave_type.name, duration.name, description)
         )
         self.conn.commit()
 

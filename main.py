@@ -29,7 +29,7 @@ class CalendarController:
             self.leave.remove_entry(d, self.model.current_employee_id)
         self.refresh()
 
-    def set_leave_for_day(self, d: date, leave_type, duration):
+    def set_leave_for_day(self, d: date, leave_type, duration, description: str):
         # Replace any existing entry for this employee/day with the specified leave
         # Ensure model and repository are consistent
         # Remove existing
@@ -37,9 +37,9 @@ class CalendarController:
         self.model.remove_leave(self.model.current_employee_id, d)
         # Add new
         entry = LeaveEntry(employee_id=self.model.current_employee_id,
-                           leave_date=d, leave_type=leave_type, duration=duration)
+                           leave_date=d, leave_type=leave_type, duration=duration, description=description)
         self.model.add_leave(entry)
-        self.leave.add_entry(d, self.model.current_employee_id, leave_type, duration)
+        self.leave.add_entry(d, self.model.current_employee_id, leave_type, duration, description)
         self.refresh()
 
     def clear_leave_for_day(self, d: date):

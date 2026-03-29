@@ -32,7 +32,7 @@ class GroupBox(ft.Container):
 # This is the view class that manages all the UI rendering and user interactions
 class LeaveCalendarView:
     def __init__(self, page: ft.Page):
-        self.DAY_CELL_SIZE = 55
+        self.DAY_CELL_SIZE = 60
         self.page = page
         self.controller = None  # Will be set by the controller
         page.title = "Leave Tracker Calendar"
@@ -40,7 +40,11 @@ class LeaveCalendarView:
 
         self.header = ft.Text("", size=20, weight="bold")
         self.calendar_grid = ft.Column()
-        self.leave_summary = ft.Text()
+        self.leave_summary = ft.Column(
+            controls=[ft.Text()],
+            height=150,
+            scroll=ft.ScrollMode.AUTO
+        )
 
         # Employee drop down - will be populated with employee names and IDs from the model when rendering the calendar
         self.employeeDrop = ft.Dropdown(
@@ -101,13 +105,14 @@ class LeaveCalendarView:
         # Dialog / popup for selecting leave type and duration (reused for all day clicks)
         self._dialog_day = None
 
-        # RadioGroups for leave type and duration; we'll re-use these in the dialog
+        # RadioGroups for leave type and duration; leave description text. We'll re-use these in the dialog
         self.leave_type_group = ft.RadioGroup(
             content=ft.Column([ft.Radio(label=lt.value.name, value=lt.name) for lt in LeaveType], tight=True)
         )
         self.leave_duration_group = ft.RadioGroup(
             content=ft.Column([ft.Radio(label=d.value, value=d.name) for d in LeaveDuration], tight=True)
         )
+        self.leave_description = ft.TextField(label="Description or comments", hint_text="Holiday in Ibiza", width=410)
 
         return ft.AlertDialog(
             content=ft.Column(controls = [
@@ -120,7 +125,7 @@ class LeaveCalendarView:
                                      border=ft.border.all(1, ft.Colors.GREY_400)),
                     ], expand = False, alignment=ft.MainAxisAlignment.START, spacing=35), 
                 ]),
-                ft.TextField(label="Description or comments", hint_text="Holiday in Ibiza", width=410),
+                self.leave_description,
             ]
             ),
             actions=[
@@ -150,7 +155,55 @@ class LeaveCalendarView:
         else:
             self.controller.change_employee(int(self.employeeDrop.value))
 
-    def create_day_cell(self, day_number, leave_type: LeaveType, leave_duration: LeaveDuration=None):
+    # Render the cell for a given day, applying background color or gradient based on the leave type and duration
+    # entries is a list of leave entries for the day. If empty render as normal, if all leave is the same type colour the cell with that type, 
+    # if multiple leave types then show a dark background and annotate the cell with the employee abbreviation(s) and show a tooltip with the 
+    # details of each entry
+    def create_day_cell(self, day_number, day_entries: list):
+
+        # If list empty, render normal cell
+        if day_entries is None or len(day_entries) == 0:
+            return ft.Container(
+                content=ft.Text(str(day_number)),
+                width=self.DAY_CELL_SIZE,
+                height=self.DAY_CELL_SIZE,
+                alignment=ft.Alignment.CENTER,
+                bgcolor=ft.Colors.WHITE,
+            )
+
+        else:
+            # Render cell and annotate with employee, leave type and duration
+        
+            # Create the tooltip text and list of employee abbreviations
+            abbrev_texts = []
+            tooltip_text = ""
+            # If all entries are of the same type and duration, render with that type's color and gradient
+            same_leave_type = len(set((entry.leave_type, entry.duration) for entry in day_entries)) == 1
+            for entry in day_entries:
+                emp_name = self.controller.get_employee_name(entry.employee_id)
+                emp_abbrev = self.controller.get_employee_abbrev(entry.employee_id)
+                # Make the abbreviation text white if the background is the leave type colour
+                abbrev_texts.append(ft.Text(emp_abbrev, size=10, weight=ft.FontWeight.W_200, color=ft.Colors.WHITE if same_leave_type else entry.leave_type.value.color))
+                tooltip_text += f"{emp_name}: {entry.leave_type.value.name} {entry.duration.value}\n"
+            
+            if (same_leave_type):
+                entry = day_entries[0]
+                leave_type = entry.leave_type
+                leave_duration = entry.duration
+            # otherwise it's a mixture of leave types/durations - render with a dark background and show employee abbrevs in the cell with a tooltip showing the details of each entry
+            else:
+                return ft.Container(
+                    content=ft.Stack([
+                        ft.Container(content=ft.Text(str(day_number), color=ft.Colors.GREY), alignment=ft.Alignment.CENTER),
+                        ft.Container(content=ft.Row(abbrev_texts, spacing=2), alignment=ft.Alignment.BOTTOM_LEFT),
+                    ]),
+                    width=self.DAY_CELL_SIZE,
+                    height=self.DAY_CELL_SIZE,
+                    bgcolor=ft.Colors.GREY_800,
+                    tooltip=tooltip_text.strip()
+                )
+
+        # If we have a single leave type/duration, we can colour the cell with the leave type color and apply a gradient based on the duration (AM/PM)
         bg_gradient = None
         bg_color = leave_type.value.color if leave_type else ft.Colors.WHITE
         if leave_duration == LeaveDuration.AM:
@@ -179,13 +232,17 @@ class LeaveCalendarView:
             )
 
         return ft.Container(
-            content=ft.Text(str(day_number)),
+            content=ft.Stack([
+                ft.Container(content=ft.Text(str(day_number), color=ft.Colors.GREY), alignment=ft.Alignment.CENTER),
+                ft.Container(content=ft.Row(abbrev_texts, spacing=2), alignment=ft.Alignment.BOTTOM_LEFT),
+            ]),
             width=self.DAY_CELL_SIZE,
             height=self.DAY_CELL_SIZE,
             alignment=ft.Alignment.CENTER,
             border=ft.border.all(1, bg_color),
             bgcolor=bg_color,
             gradient=bg_gradient,
+            tooltip=tooltip_text.strip()
         )
 
     # ---- Render methods ----
@@ -212,7 +269,7 @@ class LeaveCalendarView:
         cal = calendar.Calendar(firstweekday=0)
         month_days = cal.monthdayscalendar(year, month)
 
-        self.leave_summary.value = f"Booked leave for {self.employeeDrop.text if self.employeeDrop.value != 'all' else 'All Employees'}:\n" + "\n"
+        self.leave_summary.controls[0].value = f"Booked leave for {self.employeeDrop.text if self.employeeDrop.value != 'all' else 'All Employees'}:\n" + "\n"
 
         # Filter the list of leave entries by employee if selected in dropdown
         if self.employeeDrop.value != "all":
@@ -229,17 +286,8 @@ class LeaveCalendarView:
                     d = date(year, month, day)
                     # Filter the list of leave entries to find if there's an entry for this day (and employee if selected)
                     day_entries = list(filter(lambda e: e.leave_date == d, leave_entries))
-                    if len(day_entries) > 0:
-                        entry_exists = day_entries[0] # Assuming only one entry per employee/day, take the first match
-                        bgcolour = entry_exists.leave_type.value.color
-                    else:
-                        bgcolour = None
-
-                    cell = self.create_day_cell(
-                                        day, 
-                                        entry_exists.leave_type if entry_exists else None, 
-                                        entry_exists.duration if entry_exists else None)
-                    cell.on_click = lambda e, day_date=d: self._open_leave_dialog(day_date)
+                    cell = self.create_day_cell(day, day_entries)
+                    cell.on_click = lambda e, d=d: self._open_leave_dialog(d)
                     row.controls.append(cell)
             self.calendar_grid.controls.append(row)
 
@@ -253,9 +301,9 @@ class LeaveCalendarView:
                 emp_name = ""
                 if self.employeeDrop.value == "all":
                     emp_name = f"{self.controller.get_employee_name(e.employee_id)} ({self.controller.get_employee_abbrev(e.employee_id)})"
-                self.leave_summary.value += f"{e.leave_date}: {emp_name} {e.leave_type.value.name} ({e.duration.value})\n"
+                self.leave_summary.controls[0].value += f"{e.leave_date} ({e.duration.value}): {emp_name} {e.leave_type.value.name} {f'- {e.description}' if e.description else ''}\n"
         else:
-            self.leave_summary.value += "No leave booked"
+            self.leave_summary.controls[0].value += "No leave booked"
         self.page.update()
 
     # ---- Leave dialog handlers ----
@@ -268,18 +316,21 @@ class LeaveCalendarView:
         
         self._dialog_day = d
         # Pre-select existing values if an entry exists
-        entry = self.controller.model.get_entries_for_day(int(self.employeeDrop.value), d)
+        entry = self.controller.model.get_entries_for_day(d, int(self.employeeDrop.value))
 
         if entry:
             selected_type = entry.leave_type.name
             selected_dur = entry.duration.name
+            selected_description = entry.description
         else:
             selected_type = self.controller.model.selected_leave_type.name
             selected_dur = self.controller.model.selected_duration.name
+            selected_description = ""
 
-        # set the radio group selections
+        # set the radio group selections & desciptive text
         self.leave_type_group.value = selected_type
         self.leave_duration_group.value = selected_dur
+        self.leave_description.value = selected_description
 
         # Flet sometimes requires show_dialog to actually render the dialog
         self.leave_dialog.open = True
@@ -300,7 +351,7 @@ class LeaveCalendarView:
         if selected_type_name and selected_dur_name and self._dialog_day:
             lt = LeaveType[selected_type_name]
             du = LeaveDuration[selected_dur_name]
-            self.controller.set_leave_for_day(self._dialog_day, lt, du)
+            self.controller.set_leave_for_day(self._dialog_day, lt, du, self.leave_description.value)
 
         self._close_dialog()
 
