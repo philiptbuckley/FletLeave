@@ -59,12 +59,18 @@ class LeaveCalendarView:
         # and the view selector buttons and store them as instance variables so we can update them later when rendering the calendar
         self.nav, self.view_mode = self.build_nav()
 
+        # Create a text control for the leave summary title
+        self.leave_summary_title = ft.Container(
+            content=ft.Text("", weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER),
+            margin=ft.margin.only(bottom=0)
+        )
+
         # Add the controls onto the page
         page.add(ft.Row([
             ft.Column(self.employeeDrop, width=200),
             ft.Column(controls=[self.nav, self.calendar_grid], expand=True, width=400),
             ft.Column(controls=[ft.Container(expand=False), self.build_key()],width=200)
-        ], expand=True),ft.Divider(), self.leave_summary)
+        ], expand=True), self.leave_summary_title, ft.Divider(), self.leave_summary)
 
         # Prepare leave type and duration dialog (reused for all day clicks)
         self.leave_dialog = self.build_leave_dialog()
@@ -269,7 +275,7 @@ class LeaveCalendarView:
         cal = calendar.Calendar(firstweekday=0)
         month_days = cal.monthdayscalendar(year, month)
 
-        self.leave_summary.controls[0].value = f"Booked leave for {self.employeeDrop.text if self.employeeDrop.value != 'all' else 'All Employees'}:\n" + "\n"
+        self.leave_summary_title.content.value = f"Booked leave for {self.employeeDrop.text if self.employeeDrop.value != 'all' else 'All Employees'}"
 
         # Filter the list of leave entries by employee if selected in dropdown
         if self.employeeDrop.value != "all":
@@ -292,9 +298,12 @@ class LeaveCalendarView:
             self.calendar_grid.controls.append(row)
 
         # Filter leave entries for this date range
-        leave_entries = filter(lambda e: e.leave_date.month == month and e.leave_date.year == year, leave_entries)
+        leave_entries = list(filter(lambda e: e.leave_date.month == month and e.leave_date.year == year, leave_entries))
+
         # Update the selected_text control to show the leave entries for the month
-        if leave_entries:
+        # If there are no entries, show "No leave booked". If there are entries, show the date, employee name (if employee filter is not applied), leave type and duration, and description if exists
+        self.leave_summary.controls[0].value = ""
+        if len(leave_entries) > 0:
             # Sort the entries by date
             leave_entries = sorted(leave_entries, key=lambda e: e.leave_date)
             for e in leave_entries:
