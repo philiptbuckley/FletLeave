@@ -4,14 +4,6 @@ from datetime import date
 from enum import Enum
 from dataclasses import dataclass
 
-@dataclass(frozen=True)
-class LeaveEntry:
-    employee_id: int
-    leave_date: date
-    leave_type: LeaveType
-    duration: LeaveDuration
-    description: str
-
 class LeaveTypeInfo:
     def __init__(self, name, color):
         self.name = name
@@ -23,11 +15,20 @@ class LeaveType(Enum):
     SHUTDOWN = LeaveTypeInfo("Shutdown", ft.Colors.BROWN_600)
     SICK = LeaveTypeInfo("Sick", ft.Colors.PINK_200)
     UNPAID = LeaveTypeInfo("Unpaid", ft.Colors.GREY_200)
+    XTRA = LeaveTypeInfo("Extra Work", ft.Colors.LIME_ACCENT_400)
 
 class LeaveDuration(Enum):
     FULL = "Full day"
     AM = "AM only"
     PM = "PM only"
+
+@dataclass(frozen=True)
+class LeaveEntry:
+    employee_id: int
+    leave_date: date
+    leave_type: LeaveType
+    duration: LeaveDuration
+    description: str
 
 # This is the model class and the data and business logic will be handled here
 class LeaveModel:

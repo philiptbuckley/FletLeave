@@ -68,12 +68,15 @@ class LeaveCalendarView:
         # Add the controls onto the page
         page.add(ft.Row([
             ft.Column(self.employeeDrop, width=200),
+            ft.IconButton(ft.Icons.ADD, on_click = lambda e: self._open_employee_dialog()),
+            ft.IconButton(ft.Icons.EDIT, disabled=True, on_click = lambda e: self._open_employee_dialog(self.employeeDrop.value)),
             ft.Column(controls=[self.nav, self.calendar_grid], expand=True, width=400),
             ft.Column(controls=[ft.Container(expand=False), self.build_key()],width=200)
         ]), self.leave_summary_title, ft.Divider(), self.leave_summary)
 
-        # Prepare leave type and duration dialog (reused for all day clicks)
+        # Prepare leave and employee dialog (reused for all inocations)
         self.leave_dialog = self.build_leave_dialog()
+        self.emmployee_dialog = self.build_employee_dialog()
 
     def build_key(self):
         self.key_column = ft.Column(controls=[ft.Text("Key:", weight=ft.FontWeight.BOLD)], expand=True, alignment=ft.Alignment.TOP_RIGHT, )
@@ -139,6 +142,23 @@ class LeaveCalendarView:
                 ft.TextButton("Clear", on_click=self._clear_leave),
                 ft.TextButton("Apply", on_click=self._apply_leave),
             ],
+        )
+
+    def build_employee_dialog(self):
+        # Dialog / popup for adding / editing employees
+        self.employee_input_name = ft.TextField(label="Employee name", width=100,
+                                    label_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
+                                    border=ft.border.all(1, ft.Colors.GREY_400))
+        self.employee_input_abbrev = ft.TextField(label="Initials", width=10, capitalization=True, max_length=2,
+                                    label_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
+                                    border=ft.border.all(1, ft.Colors.GREY_400))
+        return ft.AlertDialog(
+            content = ft.Column(controls = [self.employee_input_name, self.employee_input_abbrev]),
+            actions=[
+                ft.TextButton("Cancel", on_click=self._close_employee_dialog),
+                ft.TextButton("Delete"), #on_click=self._clear_leave),
+                ft.TextButton("Apply")#, on_click=self._apply_leave),
+            ]
         )
 
     # Function to attach the controller to the view
@@ -313,6 +333,29 @@ class LeaveCalendarView:
                 self.leave_summary.controls[0].value += f"{e.leave_date} ({e.duration.value}): {emp_name} {e.leave_type.value.name} {f'- {e.description}' if e.description else ''}\n"
         else:
             self.leave_summary.controls[0].value += "No leave booked"
+        self.page.update()
+
+    # ---- Employee dialog handlers ----
+    def _open_employee_dialog(self, emp=None):
+
+        # If emp not specified assume this is an add new operation
+        if emp == None:
+            # Add code goes here
+            pass
+
+        # Must have an employee selected if it's edit
+        elif emp == "all":
+            self.page.show_dialog(ft.SnackBar(content=ft.Text("Please select an employee to edit")))
+            return
+        
+        else:
+            # Edit code goes here
+            self.employee_dialog
+            # Load the employee info from the database
+            employee = self.controller.model.get_employee(int(emp))
+
+    def _close_employee_dialog(self, e=None):
+        self.leave_dialog.open = False
         self.page.update()
 
     # ---- Leave dialog handlers ----
