@@ -70,7 +70,7 @@ class LeaveCalendarView:
             ft.Column(self.employeeDrop, width=200),
             ft.Column(controls=[self.nav, self.calendar_grid], expand=True, width=400),
             ft.Column(controls=[ft.Container(expand=False), self.build_key()],width=200)
-        ]), self.leave_summary_title, ft.Divider(), self.leave_summary)
+        ], vertical_alignment=ft.CrossAxisAlignment.START), self.leave_summary_title, ft.Divider(), self.leave_summary)
 
         # Prepare leave type and duration dialog (reused for all day clicks)
         self.leave_dialog = self.build_leave_dialog()
