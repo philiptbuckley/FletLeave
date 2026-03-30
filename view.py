@@ -42,8 +42,8 @@ class LeaveCalendarView:
         self.calendar_grid = ft.Column()
         self.leave_summary = ft.Column(
             controls=[ft.Text()],
-            height=150,
-            scroll=ft.ScrollMode.AUTO
+            scroll=ft.ScrollMode.AUTO,
+            expand=True
         )
 
         # Employee drop down - will be populated with employee names and IDs from the model when rendering the calendar
@@ -70,7 +70,7 @@ class LeaveCalendarView:
             ft.Column(self.employeeDrop, width=200),
             ft.Column(controls=[self.nav, self.calendar_grid], expand=True, width=400),
             ft.Column(controls=[ft.Container(expand=False), self.build_key()],width=200)
-        ], expand=True), self.leave_summary_title, ft.Divider(), self.leave_summary)
+        ]), self.leave_summary_title, ft.Divider(), self.leave_summary)
 
         # Prepare leave type and duration dialog (reused for all day clicks)
         self.leave_dialog = self.build_leave_dialog()
