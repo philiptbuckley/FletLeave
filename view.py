@@ -156,8 +156,8 @@ class LeaveCalendarView:
             content = ft.Column(controls = [self.employee_input_name, self.employee_input_abbrev]),
             actions=[
                 ft.TextButton("Cancel", on_click=self._close_employee_dialog),
-                ft.TextButton("Delete"), #on_click=self._clear_leave),
-                ft.TextButton("Apply")#, on_click=self._apply_leave),
+                ft.TextButton("Delete"), #on_click=self._delete_employee),
+                ft.TextButton("Add", on_click=self._add_employee),
             ]
         )
 
@@ -274,8 +274,10 @@ class LeaveCalendarView:
     # ---- Render methods ----
     def render_calendar(self, year, month, leave_entries, employees):
 
+        for emp in employees:
+            print (emp)
         # Update employee dropdown options based on the list of employees in the model
-        self.employeeDrop.options = [ft.dropdown.Option("all", "All Employees")] + [ft.dropdown.Option(str(emp["id"]), emp["name"]) for emp in employees]
+        self.employeeDrop.options = [ft.dropdown.Option("all", "All Employees")] + [ft.dropdown.Option(str(emp.id), emp.name) for emp in employees]
         # Add a separator option after the "All Employees" option for better UX
         self.employeeDrop.options.insert(1, ft.dropdown.Option(None, "----------------", disabled=True))
 
@@ -364,6 +366,14 @@ class LeaveCalendarView:
         self.employee_dialog.open = False
         self.page.update()
 
+    def _add_employee(self, e):
+        self.controller.add_employee (self.employee_input_name.value, self.employee_input_abbrev.value)
+        self._close_employee_dialog()
+
+    def _delete_employee(self, e):
+        # self.controller.delete_employee (self.employee_input_name, self.employee_input_abbrev)
+        self._close_employee_dialog()
+        
     # ---- Leave dialog handlers ----
     def _open_leave_dialog(self, d: date):
 

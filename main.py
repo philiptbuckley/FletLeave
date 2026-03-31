@@ -1,7 +1,7 @@
 import flet as ft
 from datetime import date
 from view import LeaveCalendarView
-from model import LeaveEntry, LeaveModel, LeaveRepository, EmployeeRepository
+from model import LeaveEntry, LeaveModel, LeaveRepository, Employee, EmployeeRepository
 
 # ---- Conroller ---- This class will handle the user interactions and update the model and view accordingly
 class CalendarController:
@@ -15,6 +15,7 @@ class CalendarController:
         self.refresh()
 
     def refresh(self):
+        print(self.model.employees)
         self.view.render_calendar(self.model.year, self.model.month, 
                                   self.model.leave_entries, self.model.employees)
 
@@ -65,6 +66,12 @@ class CalendarController:
 
     def get_employee_abbrev(self, employee_id):
         return self.model.get_employee_abbrev(employee_id)
+
+    def add_employee(self, emp_name: str, emp_abbrev=None):
+        employee = Employee(id=None, name=emp_name, abbrev=emp_abbrev)   # Create object
+        self.model.add_employee(employee)                       # Add to the database
+        self.employees.add_entry(emp_name, emp_abbrev)          # Add to the UI
+        self.refresh()
 
 # Main function to run the app
 # MVC design pattern
