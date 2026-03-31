@@ -69,7 +69,7 @@ class LeaveCalendarView:
         page.add(ft.Row([
             ft.Column(self.employeeDrop, width=200),
             ft.IconButton(ft.Icons.ADD, on_click = lambda e: self._open_employee_dialog()),
-            ft.IconButton(ft.Icons.EDIT, disabled=True, on_click = lambda e: self._open_employee_dialog(self.employeeDrop.value)),
+            ft.IconButton(ft.Icons.EDIT, on_click = lambda e: self._open_employee_dialog(self.employeeDrop.value)),
             ft.Column(controls=[self.nav, self.calendar_grid], expand=True, width=400),
             ft.Column(controls=[ft.Container(expand=False), self.build_key()],width=200)
         ], vertical_alignment=ft.CrossAxisAlignment.START), self.leave_summary_title, ft.Divider(), self.leave_summary)
@@ -158,6 +158,7 @@ class LeaveCalendarView:
                 ft.TextButton("Cancel", on_click=self._close_employee_dialog),
                 ft.TextButton("Delete"), #on_click=self._delete_employee),
                 ft.TextButton("Add", on_click=self._add_employee),
+                ft.TextButton("Update", on_click=self._update_employee, visible=False),
             ]
         )
 
@@ -203,13 +204,15 @@ class LeaveCalendarView:
             # Create the tooltip text and list of employee abbreviations
             abbrev_texts = []
             tooltip_text = ""
+
             # If all entries are of the same type and duration, render with that type's color and gradient
             same_leave_type = len(set((entry.leave_type, entry.duration) for entry in day_entries)) == 1
+            
             for entry in day_entries:
                 emp_name = self.controller.get_employee_name(entry.employee_id)
                 emp_abbrev = self.controller.get_employee_abbrev(entry.employee_id)
                 # Make the abbreviation text white if the background is the leave type colour
-                abbrev_texts.append(ft.Text(emp_abbrev, size=10, weight=ft.FontWeight.W_200, color=ft.Colors.WHITE if same_leave_type else entry.leave_type.value.color))
+                abbrev_texts.append(ft.Text(emp_abbrev, size=10, color=ft.Colors.BLACK if same_leave_type else entry.leave_type.value.color))
                 tooltip_text += f"{emp_name}: {entry.leave_type.value.name} {entry.duration.value}\n"
             
             if (same_leave_type):
@@ -274,8 +277,6 @@ class LeaveCalendarView:
     # ---- Render methods ----
     def render_calendar(self, year, month, leave_entries, employees):
 
-        for emp in employees:
-            print (emp)
         # Update employee dropdown options based on the list of employees in the model
         self.employeeDrop.options = [ft.dropdown.Option("all", "All Employees")] + [ft.dropdown.Option(str(emp.id), emp.name) for emp in employees]
         # Add a separator option after the "All Employees" option for better UX
@@ -343,7 +344,8 @@ class LeaveCalendarView:
         # If emp not specified assume this is an add new operation
         if emp == None:
             # Add code goes here
-            pass
+            self.employee_dialog.actions[2].visable = False
+            self.employee_dialog.actions[3].visable = True
 
         # Must have an employee selected if it's edit
         elif emp == "all":
@@ -352,9 +354,11 @@ class LeaveCalendarView:
         
         else:
             # Edit code goes here
-            self.employee_dialog
             # Load the employee info from the database
-            employee = self.controller.model.get_employee(int(emp))
+            self.employee_input_name.value = self.controller.model.get_employee_name(int(emp))
+            self.employee_input_abbrev.value = self.controller.model.get_employee_abbrev(int(emp))
+            self.employee_dialog.actions[2].visible = True
+            self.employee_dialog.actions[3].visible = False
 
         # Flet sometimes requires show_dialog to actually render the dialog
         self.employee_dialog.open = True
@@ -368,6 +372,10 @@ class LeaveCalendarView:
 
     def _add_employee(self, e):
         self.controller.add_employee (self.employee_input_name.value, self.employee_input_abbrev.value)
+        self._close_employee_dialog()
+
+    def _update_employee(self, e):
+        self.controller.update_employee (self.employee_input_name.value, self.employee_input_abbrev.value)
         self._close_employee_dialog()
 
     def _delete_employee(self, e):

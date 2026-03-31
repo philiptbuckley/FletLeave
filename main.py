@@ -15,7 +15,6 @@ class CalendarController:
         self.refresh()
 
     def refresh(self):
-        print(self.model.employees)
         self.view.render_calendar(self.model.year, self.model.month, 
                                   self.model.leave_entries, self.model.employees)
 
@@ -72,6 +71,10 @@ class CalendarController:
         self.model.add_employee(employee)                       # Add to the database
         self.employees.add_entry(emp_name, emp_abbrev)          # Add to the UI
         self.refresh()
+
+    def update_employee(self, emp_name: str, emp_abbrev=None):
+        # Update the employee in the database and model
+        print("!!!!!!!!!!!!!!Update employee needs implementing!!!!!!!!!!!!!!!!!")
 
 # Main function to run the app
 # MVC design pattern

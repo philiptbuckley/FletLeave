@@ -134,8 +134,8 @@ class EmployeeRepository:
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS employees (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT,
-                abbrev CHAR(2))
+                name TEXT NOT NULL UNIQUE,
+                abbrev CHAR(2) UNIQUE)
         """)
         self.conn.commit()
 
