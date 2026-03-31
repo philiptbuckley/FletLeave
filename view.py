@@ -72,11 +72,11 @@ class LeaveCalendarView:
             ft.IconButton(ft.Icons.EDIT, disabled=True, on_click = lambda e: self._open_employee_dialog(self.employeeDrop.value)),
             ft.Column(controls=[self.nav, self.calendar_grid], expand=True, width=400),
             ft.Column(controls=[ft.Container(expand=False), self.build_key()],width=200)
-        ]), self.leave_summary_title, ft.Divider(), self.leave_summary)
+        ], vertical_alignment=ft.CrossAxisAlignment.START), self.leave_summary_title, ft.Divider(), self.leave_summary)
 
         # Prepare leave and employee dialog (reused for all inocations)
         self.leave_dialog = self.build_leave_dialog()
-        self.emmployee_dialog = self.build_employee_dialog()
+        self.employee_dialog = self.build_employee_dialog()
 
     def build_key(self):
         self.key_column = ft.Column(controls=[ft.Text("Key:", weight=ft.FontWeight.BOLD)], expand=True, alignment=ft.Alignment.TOP_RIGHT, )
@@ -146,10 +146,10 @@ class LeaveCalendarView:
 
     def build_employee_dialog(self):
         # Dialog / popup for adding / editing employees
-        self.employee_input_name = ft.TextField(label="Employee name", width=100,
+        self.employee_input_name = ft.TextField(label="Employee name", width=300,
                                     label_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
                                     border=ft.border.all(1, ft.Colors.GREY_400))
-        self.employee_input_abbrev = ft.TextField(label="Initials", width=10, capitalization=True, max_length=2,
+        self.employee_input_abbrev = ft.TextField(label="Initials", width=90, capitalization=True, max_length=2,
                                     label_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
                                     border=ft.border.all(1, ft.Colors.GREY_400))
         return ft.AlertDialog(
@@ -354,8 +354,14 @@ class LeaveCalendarView:
             # Load the employee info from the database
             employee = self.controller.model.get_employee(int(emp))
 
+        # Flet sometimes requires show_dialog to actually render the dialog
+        self.employee_dialog.open = True
+        self.page.show_dialog(self.employee_dialog)
+        # page.update() may not be needed but safe
+        self.page.update()
+
     def _close_employee_dialog(self, e=None):
-        self.leave_dialog.open = False
+        self.employee_dialog.open = False
         self.page.update()
 
     # ---- Leave dialog handlers ----
