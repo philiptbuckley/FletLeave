@@ -71,7 +71,7 @@ class CalendarController:
             if emp.name == name:
                 return emp.id
 
-    def add_employee(self, emp_name: str, emp_abbrev=None):
+    def add_employee(self, emp_name: str, emp_abbrev=None) -> bool:
         employee = Employee(id=None, name=emp_name, abbrev=emp_abbrev)  # Create object
         id = self.employees.add_employee(emp_name, emp_abbrev)          # Add to the database and get new ID
         if id > 0:       # Add to the database
@@ -82,7 +82,7 @@ class CalendarController:
         else:
             return False
         
-    def delete_employee(self, employee_id):
+    def delete_employee(self, employee_id) -> bool:
         if self.employees.remove_employee(employee_id) > 0:             # Remove from the database
             self.model.remove_employee(employee_id)                     # Remove from the model
             self.refresh()
@@ -90,9 +90,14 @@ class CalendarController:
         else:
             return False
 
-    def update_employee(self, emp_name: str, emp_abbrev=None):
-        # Update the employee in the database and model
-        print("!!!!!!!!!!!!!!Update employee needs implementing!!!!!!!!!!!!!!!!!")
+    # Update the employee in the database and model
+    def update_employee(self, emp_id, emp_name: str, emp_abbrev=None) -> bool:
+        if self.employees.update_employee(emp_id, emp_name, emp_abbrev) > 0:  # Update in the database
+            self.model.update_employee(emp_id, emp_name, emp_abbrev)          # Update in the model
+            self.refresh()
+            return True
+        else:
+            return False
 
 # Main function to run the app
 # MVC design pattern

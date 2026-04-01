@@ -130,6 +130,14 @@ class LeaveModel:
         # Also remove any leave entries for this employee
         self.leave_entries = [e for e in self.leave_entries if e.employee_id != employee_id]
 
+    # Update employee details in the model
+    def update_employee(self, emp_id, emp_name: str, emp_abbrev: str):
+        for emp in self.employees:
+            if emp.id == emp_id:
+                emp.name = emp_name
+                emp.abbrev = emp_abbrev
+                break
+
 class EmployeeRepository:
     def __init__(self, db_path="leave_calendar.db"):
         self.conn = sqlite3.connect(db_path)
@@ -161,6 +169,15 @@ class EmployeeRepository:
         result = self.conn.execute(
             "DELETE FROM employees WHERE id = ?",
             (employee_id,)
+        )
+        self.conn.commit()
+        return result.rowcount
+    
+    # Update employee record in the database
+    def update_employee(self, emp_id, name: str, abbrev: str) -> int:
+        result = self.conn.execute(
+            "UPDATE employees SET name = ?, abbrev = ? WHERE id = ?",
+            (name, abbrev, emp_id)
         )
         self.conn.commit()
         return result.rowcount

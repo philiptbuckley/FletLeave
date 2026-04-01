@@ -344,8 +344,13 @@ class LeaveCalendarView:
         # If emp not specified assume this is an add new operation
         if emp == None:
             # Add code goes here
-            self.employee_dialog.actions[2].visable = False
-            self.employee_dialog.actions[3].visable = True
+
+            # Update the dialog title and buttons visibility for add vs edit operation
+            self.employee_dialog.title = "Add Employee"
+            self.employee_input_name.value = ""
+            self.employee_input_abbrev.value = ""
+            self.employee_dialog.actions[2].visible = True
+            self.employee_dialog.actions[3].visible = False
 
         # Must have an employee selected if it's edit
         elif emp == "all":
@@ -355,10 +360,11 @@ class LeaveCalendarView:
         else:
             # Edit code goes here
             # Load the employee info from the database
+            self.employee_dialog.title = "Update Employee"
             self.employee_input_name.value = self.controller.model.get_employee_name(int(emp))
             self.employee_input_abbrev.value = self.controller.model.get_employee_abbrev(int(emp))
-            self.employee_dialog.actions[2].visible = True
-            self.employee_dialog.actions[3].visible = False
+            self.employee_dialog.actions[2].visible = False
+            self.employee_dialog.actions[3].visible = True
 
         # Flet sometimes requires show_dialog to actually render the dialog
         self.employee_dialog.open = True
@@ -380,7 +386,12 @@ class LeaveCalendarView:
         self._close_employee_dialog()
 
     def _update_employee(self, e):
-        self.controller.update_employee (self.employee_input_name.value, self.employee_input_abbrev.value)
+        if self.controller.update_employee (int(self.employeeDrop.value), self.employee_input_name.value, self.employee_input_abbrev.value):
+            self.employeeDrop.text = self.employee_input_name.value # Update the dropdown with updated employee name
+            self.page.show_dialog(ft.SnackBar(content=ft.Text(f" {self.employeeDrop.text} updated successfully")))
+            self.controller.refresh()  # Refresh the calendar to show the updated employee name in the dropdown and calendar
+        else:             
+            self.page.show_dialog(ft.SnackBar(content=ft.Text(f"Failed to update {self.employeeDrop.text} - name and initials must be unique")))
         self._close_employee_dialog()
 
     def _delete_employee(self, e):
