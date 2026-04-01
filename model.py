@@ -30,7 +30,7 @@ class LeaveEntry:
     duration: LeaveDuration
     description: str
 
-@dataclass(frozen=True)
+@dataclass(frozen=False)    # We need to be able to set the ID after creating the object
 class Employee:
     id: int
     name: str
@@ -125,6 +125,11 @@ class LeaveModel:
     def add_employee(self, emp: Employee):
         self.employees.append(emp)
 
+    def remove_employee(self, employee_id):
+        self.employees = [e for e in self.employees if e.id != employee_id]
+        # Also remove any leave entries for this employee
+        self.leave_entries = [e for e in self.leave_entries if e.employee_id != employee_id]
+
 class EmployeeRepository:
     def __init__(self, db_path="leave_calendar.db"):
         self.conn = sqlite3.connect(db_path)
@@ -143,7 +148,7 @@ class EmployeeRepository:
         cursor = self.conn.execute("SELECT id, name, abbrev FROM employees")
         return [Employee(id=row[0], name=row[1], abbrev=row[2]) for row in cursor.fetchall()]
 
-    def add_entry(self, name: str, abbrev: str) -> int:
+    def add_employee(self, name: str, abbrev: str) -> int:
         self.conn.execute(
             "INSERT OR IGNORE INTO employees (name, abbrev) VALUES (?, ?)",
             (name, abbrev)
@@ -151,6 +156,14 @@ class EmployeeRepository:
         self.conn.commit()
         cursor = self.conn.execute("SELECT last_insert_rowid()")
         return int(cursor.fetchone()[0])
+    
+    def remove_employee(self, employee_id) -> int:
+        result = self.conn.execute(
+            "DELETE FROM employees WHERE id = ?",
+            (employee_id,)
+        )
+        self.conn.commit()
+        return result.rowcount
 
 # This class will handle the database interactions for storing and retrieving leave dates.
 # Keeping it separate from the model allows us to easily swap out the storage mechanism in 

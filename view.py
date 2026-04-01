@@ -156,7 +156,7 @@ class LeaveCalendarView:
             content = ft.Column(controls = [self.employee_input_name, self.employee_input_abbrev]),
             actions=[
                 ft.TextButton("Cancel", on_click=self._close_employee_dialog),
-                ft.TextButton("Delete"), #on_click=self._delete_employee),
+                ft.TextButton("Delete", on_click=self._delete_employee),
                 ft.TextButton("Add", on_click=self._add_employee),
                 ft.TextButton("Update", on_click=self._update_employee, visible=False),
             ]
@@ -371,7 +371,12 @@ class LeaveCalendarView:
         self.page.update()
 
     def _add_employee(self, e):
-        self.controller.add_employee (self.employee_input_name.value, self.employee_input_abbrev.value)
+        if self.controller.add_employee (self.employee_input_name.value, self.employee_input_abbrev.value):
+             self.page.show_dialog(ft.SnackBar(content=ft.Text("Employee added successfully")))
+             self.employeeDrop.value = self.controller.get_employee_id_by_name(self.employee_input_name.value) # Set the dropdown to the newly added employee
+             self.controller.refresh()  # Refresh the calendar to show the new employee in the dropdown and
+        else:
+             self.page.show_dialog(ft.SnackBar(content=ft.Text("Failed to save to database - name and initials must be unique")))
         self._close_employee_dialog()
 
     def _update_employee(self, e):
@@ -379,7 +384,12 @@ class LeaveCalendarView:
         self._close_employee_dialog()
 
     def _delete_employee(self, e):
-        # self.controller.delete_employee (self.employee_input_name, self.employee_input_abbrev)
+        if self.controller.delete_employee (int(self.employeeDrop.value)):
+            self.page.show_dialog(ft.SnackBar(content=ft.Text("Employee deleted successfully")))
+            self.employeeDrop.value = "all" # Reset to "All Employees" after deletion
+            self.controller.refresh()  # Refresh the calendar to show the new employee in the dropdown and
+        else:
+            self.page.show_dialog(ft.SnackBar(content=ft.Text("Failed to delete employee")))
         self._close_employee_dialog()
         
     # ---- Leave dialog handlers ----
