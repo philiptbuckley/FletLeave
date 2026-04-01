@@ -60,6 +60,10 @@ class CalendarController:
         self.model.current_employee_id = employee_id
         self.refresh()
 
+    # Return a list of leave entries for employee
+    def get_leave_entries_for_employee(self, employee_id):
+        return self.model.get_leave_entries(employee_id=employee_id)
+
     def get_employee_name(self, employee_id):
         return self.model.get_employee_name(employee_id)
 

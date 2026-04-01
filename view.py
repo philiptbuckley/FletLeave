@@ -395,6 +395,34 @@ class LeaveCalendarView:
         self._close_employee_dialog()
 
     def _delete_employee(self, e):
+        # Check if any leave booked for the employee and if so show a confirmation dialog before deleting
+        if len(self.controller.get_leave_entries_for_employee(int(self.employeeDrop.value))) > 0:
+            def confirm_delete(e):
+                self._delete_employee_confirmed(e)
+                confirm_dialog.open = False
+                self.page.update()
+
+            def cancel_delete(e):
+                confirm_dialog.open = False
+                self.page.update()            
+
+            confirm_dialog = ft.AlertDialog(
+                title=ft.Text("Confirm Delete"),
+                content=ft.Column(controls=[
+                    ft.Text(f"{self.employeeDrop.text} has leave booked. Are you sure you want to delete?"),
+                    ft.Text("This will remove the employee and all their booked leave.")
+                ]),
+                actions=[
+                    ft.TextButton("Cancel", on_click=cancel_delete),
+                    ft.TextButton("Delete", on_click=confirm_delete),
+                ],
+            )
+            confirm_dialog.open = True
+            self.page.show_dialog(confirm_dialog)
+        else:
+            self._delete_employee_confirmed(e)
+
+    def _delete_employee_confirmed(self, e):
         if self.controller.delete_employee (int(self.employeeDrop.value)):
             self.page.show_dialog(ft.SnackBar(content=ft.Text("Employee deleted successfully")))
             self.employeeDrop.value = "all" # Reset to "All Employees" after deletion
