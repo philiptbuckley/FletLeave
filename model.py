@@ -50,11 +50,7 @@ class LeaveModel:
 
     # Lookup existing leave entries with optional employee filter (if employee_id is None, returns all entries for the day)
     def get_entries_for_day(self, day, employee_id=None):
-        entries = self.get_leave_entries(employee_id=employee_id, from_date=day, to_date=day)
-        if entries:
-            return entries[0] # Assuming only one entry per employee/day, return the first match
-        else:
-            return None
+        return self.get_leave_entries(employee_id=employee_id, from_date=day, to_date=day)
     
     # Return all entries for an optional employee with date range filter
     def get_leave_entries(self, employee_id=None, from_date=None, to_date=None):

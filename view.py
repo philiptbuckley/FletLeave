@@ -377,18 +377,20 @@ class LeaveCalendarView:
         self.page.update()
 
     def _add_employee(self, e):
-        if self.controller.add_employee (self.employee_input_name.value, self.employee_input_abbrev.value):
-             self.page.show_dialog(ft.SnackBar(content=ft.Text("Employee added successfully")))
-             self.employeeDrop.value = self.controller.get_employee_id_by_name(self.employee_input_name.value) # Set the dropdown to the newly added employee
-             self.controller.refresh()  # Refresh the calendar to show the new employee in the dropdown and
+        new_id = self.controller.add_employee(self.employee_input_name.value, self.employee_input_abbrev.value)
+        if new_id > 0:
+            self.employeeDrop.text = self.employee_input_name.value # Update the dropdown with updated employee name
+            self.employeeDrop.value = new_id
+            self.page.show_dialog(ft.SnackBar(content=ft.Text(f"{self.employeeDrop.text} added successfully")))
+            self.controller.change_employee(new_id) # Set the new employee as the selected employee in the dropdown and refresh the calendar to show the new employee's leave (if any)
         else:
-             self.page.show_dialog(ft.SnackBar(content=ft.Text("Failed to save to database - name and initials must be unique")))
+             self.page.show_dialog(ft.SnackBar(content=ft.Text(f"Failed to save {self.employee_input_name.value} to database - name and initials must be unique")))
         self._close_employee_dialog()
 
     def _update_employee(self, e):
         if self.controller.update_employee (int(self.employeeDrop.value), self.employee_input_name.value, self.employee_input_abbrev.value):
             self.employeeDrop.text = self.employee_input_name.value # Update the dropdown with updated employee name
-            self.page.show_dialog(ft.SnackBar(content=ft.Text(f" {self.employeeDrop.text} updated successfully")))
+            self.page.show_dialog(ft.SnackBar(content=ft.Text(f"{self.employeeDrop.text} updated successfully")))
             self.controller.refresh()  # Refresh the calendar to show the updated employee name in the dropdown and calendar
         else:             
             self.page.show_dialog(ft.SnackBar(content=ft.Text(f"Failed to update {self.employeeDrop.text} - name and initials must be unique")))
@@ -434,20 +436,19 @@ class LeaveCalendarView:
     # ---- Leave dialog handlers ----
     def _open_leave_dialog(self, d: date):
 
-        # Can't create or view leave entries if no employee selected - show a message and return early
-        if self.employeeDrop.value == "all":
-            self.page.show_dialog(ft.SnackBar(content=ft.Text("Please select an employee to create or edit leave")))
-            return
-        
         self._dialog_day = d
         # Pre-select existing values if an entry exists
-        entry = self.controller.model.get_entries_for_day(d, int(self.employeeDrop.value))
+        entry = self.controller.model.get_entries_for_day(d, None if self.employeeDrop.value == "all" else int(self.employeeDrop.value))
 
-        if entry:
-            selected_type = entry.leave_type.name
-            selected_dur = entry.duration.name
-            selected_description = entry.description
-        else:
+        # If more than 1 entry pmompt user to select an employee first
+        if len(entry) > 1:
+            self.page.show_dialog(ft.SnackBar(content=ft.Text("Please select an employee to create or edit leave")))
+            return
+        elif len(entry) == 1:
+            selected_type = entry[0].leave_type.name
+            selected_dur = entry[0].duration.name
+            selected_description = entry[0].description
+        else:   # No existing entry - set defaults for add new leave
             selected_type = self.controller.model.selected_leave_type.name
             selected_dur = self.controller.model.selected_duration.name
             selected_description = ""

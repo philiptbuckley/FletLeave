@@ -75,16 +75,16 @@ class CalendarController:
             if emp.name == name:
                 return emp.id
 
-    def add_employee(self, emp_name: str, emp_abbrev=None) -> bool:
+    def add_employee(self, emp_name: str, emp_abbrev=None) -> int:
         employee = Employee(id=None, name=emp_name, abbrev=emp_abbrev)  # Create object
         id = self.employees.add_employee(emp_name, emp_abbrev)          # Add to the database and get new ID
         if id > 0:       # Add to the database
-            employee.__setattr__('id', id)                                            # Save the id in the object
+            employee.__setattr__('id', id)                              # Save the id in the object
             self.model.add_employee(employee)                           # Add to the model
             self.refresh()
-            return True
+            return id
         else:
-            return False
+            return 0
         
     def delete_employee(self, employee_id) -> bool:
         if self.employees.remove_employee(employee_id) > 0:             # Remove from the database
