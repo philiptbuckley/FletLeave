@@ -68,12 +68,15 @@ class LeaveCalendarView:
         # Add the controls onto the page
         page.add(ft.Row([
             ft.Column(self.employeeDrop, width=200),
+            ft.IconButton(ft.Icons.ADD, on_click = lambda e: self._open_employee_dialog()),
+            ft.IconButton(ft.Icons.EDIT, on_click = lambda e: self._open_employee_dialog(self.employeeDrop.value)),
             ft.Column(controls=[self.nav, self.calendar_grid], expand=True, width=400),
             ft.Column(controls=[ft.Container(expand=False), self.build_key()],width=200)
         ], vertical_alignment=ft.CrossAxisAlignment.START), self.leave_summary_title, ft.Divider(), self.leave_summary)
 
-        # Prepare leave type and duration dialog (reused for all day clicks)
+        # Prepare leave and employee dialog (reused for all inocations)
         self.leave_dialog = self.build_leave_dialog()
+        self.employee_dialog = self.build_employee_dialog()
 
     def build_key(self):
         self.key_column = ft.Column(controls=[ft.Text("Key:", weight=ft.FontWeight.BOLD)], expand=True, alignment=ft.Alignment.TOP_RIGHT, )
@@ -141,6 +144,24 @@ class LeaveCalendarView:
             ],
         )
 
+    def build_employee_dialog(self):
+        # Dialog / popup for adding / editing employees
+        self.employee_input_name = ft.TextField(label="Employee name", width=300,
+                                    label_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
+                                    border=ft.border.all(1, ft.Colors.GREY_400))
+        self.employee_input_abbrev = ft.TextField(label="Initials", width=90, capitalization=True, max_length=2,
+                                    label_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
+                                    border=ft.border.all(1, ft.Colors.GREY_400))
+        return ft.AlertDialog(
+            content = ft.Column(controls = [self.employee_input_name, self.employee_input_abbrev]),
+            actions=[
+                ft.TextButton("Cancel", on_click=self._close_employee_dialog),
+                ft.TextButton("Delete", on_click=self._delete_employee),
+                ft.TextButton("Add", on_click=self._add_employee),
+                ft.TextButton("Update", on_click=self._update_employee, visible=False),
+            ]
+        )
+
     # Function to attach the controller to the view
     def set_controller(self, controller):
         self.controller = controller
@@ -183,13 +204,15 @@ class LeaveCalendarView:
             # Create the tooltip text and list of employee abbreviations
             abbrev_texts = []
             tooltip_text = ""
+
             # If all entries are of the same type and duration, render with that type's color and gradient
             same_leave_type = len(set((entry.leave_type, entry.duration) for entry in day_entries)) == 1
+            
             for entry in day_entries:
                 emp_name = self.controller.get_employee_name(entry.employee_id)
                 emp_abbrev = self.controller.get_employee_abbrev(entry.employee_id)
                 # Make the abbreviation text white if the background is the leave type colour
-                abbrev_texts.append(ft.Text(emp_abbrev, size=10, weight=ft.FontWeight.W_200, color=ft.Colors.WHITE if same_leave_type else entry.leave_type.value.color))
+                abbrev_texts.append(ft.Text(emp_abbrev, size=10, color=ft.Colors.BLACK if same_leave_type else entry.leave_type.value.color))
                 tooltip_text += f"{emp_name}: {entry.leave_type.value.name} {entry.duration.value}\n"
             
             if (same_leave_type):
@@ -255,7 +278,7 @@ class LeaveCalendarView:
     def render_calendar(self, year, month, leave_entries, employees):
 
         # Update employee dropdown options based on the list of employees in the model
-        self.employeeDrop.options = [ft.dropdown.Option("all", "All Employees")] + [ft.dropdown.Option(str(emp["id"]), emp["name"]) for emp in employees]
+        self.employeeDrop.options = [ft.dropdown.Option("all", "All Employees")] + [ft.dropdown.Option(str(emp.id), emp.name) for emp in employees]
         # Add a separator option after the "All Employees" option for better UX
         self.employeeDrop.options.insert(1, ft.dropdown.Option(None, "----------------", disabled=True))
 
@@ -315,23 +338,117 @@ class LeaveCalendarView:
             self.leave_summary.controls[0].value += "No leave booked"
         self.page.update()
 
+    # ---- Employee dialog handlers ----
+    def _open_employee_dialog(self, emp=None):
+
+        # If emp not specified assume this is an add new operation
+        if emp == None:
+            # Add code goes here
+
+            # Update the dialog title and buttons visibility for add vs edit operation
+            self.employee_dialog.title = "Add Employee"
+            self.employee_input_name.value = ""
+            self.employee_input_abbrev.value = ""
+            self.employee_dialog.actions[2].visible = True
+            self.employee_dialog.actions[3].visible = False
+
+        # Must have an employee selected if it's edit
+        elif emp == "all":
+            self.page.show_dialog(ft.SnackBar(content=ft.Text("Please select an employee to edit")))
+            return
+        
+        else:
+            # Edit code goes here
+            # Load the employee info from the database
+            self.employee_dialog.title = "Update Employee"
+            self.employee_input_name.value = self.controller.model.get_employee_name(int(emp))
+            self.employee_input_abbrev.value = self.controller.model.get_employee_abbrev(int(emp))
+            self.employee_dialog.actions[2].visible = False
+            self.employee_dialog.actions[3].visible = True
+
+        # Flet sometimes requires show_dialog to actually render the dialog
+        self.employee_dialog.open = True
+        self.page.show_dialog(self.employee_dialog)
+        # page.update() may not be needed but safe
+        self.page.update()
+
+    def _close_employee_dialog(self, e=None):
+        self.employee_dialog.open = False
+        self.page.update()
+
+    def _add_employee(self, e):
+        new_id = self.controller.add_employee(self.employee_input_name.value, self.employee_input_abbrev.value)
+        if new_id > 0:
+            self.employeeDrop.text = self.employee_input_name.value # Update the dropdown with updated employee name
+            self.employeeDrop.value = new_id
+            self.page.show_dialog(ft.SnackBar(content=ft.Text(f"{self.employeeDrop.text} added successfully")))
+            self.controller.change_employee(new_id) # Set the new employee as the selected employee in the dropdown and refresh the calendar to show the new employee's leave (if any)
+        else:
+             self.page.show_dialog(ft.SnackBar(content=ft.Text(f"Failed to save {self.employee_input_name.value} to database - name and initials must be unique")))
+        self._close_employee_dialog()
+
+    def _update_employee(self, e):
+        if self.controller.update_employee (int(self.employeeDrop.value), self.employee_input_name.value, self.employee_input_abbrev.value):
+            self.employeeDrop.text = self.employee_input_name.value # Update the dropdown with updated employee name
+            self.page.show_dialog(ft.SnackBar(content=ft.Text(f"{self.employeeDrop.text} updated successfully")))
+            self.controller.refresh()  # Refresh the calendar to show the updated employee name in the dropdown and calendar
+        else:             
+            self.page.show_dialog(ft.SnackBar(content=ft.Text(f"Failed to update {self.employeeDrop.text} - name and initials must be unique")))
+        self._close_employee_dialog()
+
+    def _delete_employee(self, e):
+        # Check if any leave booked for the employee and if so show a confirmation dialog before deleting
+        if len(self.controller.get_leave_entries_for_employee(int(self.employeeDrop.value))) > 0:
+            def confirm_delete(e):
+                self._delete_employee_confirmed(e)
+                confirm_dialog.open = False
+                self.page.update()
+
+            def cancel_delete(e):
+                confirm_dialog.open = False
+                self.page.update()            
+
+            confirm_dialog = ft.AlertDialog(
+                title=ft.Text("Confirm Delete"),
+                content=ft.Column(controls=[
+                    ft.Text(f"{self.employeeDrop.text} has leave booked. Are you sure you want to delete?"),
+                    ft.Text("This will remove the employee and all their booked leave.")
+                ]),
+                actions=[
+                    ft.TextButton("Cancel", on_click=cancel_delete),
+                    ft.TextButton("Delete", on_click=confirm_delete),
+                ],
+            )
+            confirm_dialog.open = True
+            self.page.show_dialog(confirm_dialog)
+        else:
+            self._delete_employee_confirmed(e)
+
+    def _delete_employee_confirmed(self, e):
+        if self.controller.delete_employee (int(self.employeeDrop.value)):
+            self.page.show_dialog(ft.SnackBar(content=ft.Text("Employee deleted successfully")))
+            self.employeeDrop.value = "all" # Reset to "All Employees" after deletion
+            self.controller.refresh()  # Refresh the calendar to show the new employee in the dropdown and
+        else:
+            self.page.show_dialog(ft.SnackBar(content=ft.Text("Failed to delete employee")))
+        self._close_employee_dialog()
+        
     # ---- Leave dialog handlers ----
     def _open_leave_dialog(self, d: date):
 
-        # Can't create or view leave entries if no employee selected - show a message and return early
-        if self.employeeDrop.value == "all":
-            self.page.show_dialog(ft.SnackBar(content=ft.Text("Please select an employee to create or edit leave")))
-            return
-        
         self._dialog_day = d
         # Pre-select existing values if an entry exists
-        entry = self.controller.model.get_entries_for_day(d, int(self.employeeDrop.value))
+        entry = self.controller.model.get_entries_for_day(d, None if self.employeeDrop.value == "all" else int(self.employeeDrop.value))
 
-        if entry:
-            selected_type = entry.leave_type.name
-            selected_dur = entry.duration.name
-            selected_description = entry.description
-        else:
+        # If more than 1 entry pmompt user to select an employee first
+        if len(entry) > 1:
+            self.page.show_dialog(ft.SnackBar(content=ft.Text("Please select an employee to create or edit leave")))
+            return
+        elif len(entry) == 1:
+            selected_type = entry[0].leave_type.name
+            selected_dur = entry[0].duration.name
+            selected_description = entry[0].description
+        else:   # No existing entry - set defaults for add new leave
             selected_type = self.controller.model.selected_leave_type.name
             selected_dur = self.controller.model.selected_duration.name
             selected_description = ""

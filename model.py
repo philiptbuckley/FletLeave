@@ -4,14 +4,6 @@ from datetime import date
 from enum import Enum
 from dataclasses import dataclass
 
-@dataclass(frozen=True)
-class LeaveEntry:
-    employee_id: int
-    leave_date: date
-    leave_type: LeaveType
-    duration: LeaveDuration
-    description: str
-
 class LeaveTypeInfo:
     def __init__(self, name, color):
         self.name = name
@@ -23,11 +15,26 @@ class LeaveType(Enum):
     SHUTDOWN = LeaveTypeInfo("Shutdown", ft.Colors.BROWN_600)
     SICK = LeaveTypeInfo("Sick", ft.Colors.PINK_200)
     UNPAID = LeaveTypeInfo("Unpaid", ft.Colors.GREY_200)
+    XTRA = LeaveTypeInfo("Extra Work", ft.Colors.LIME_ACCENT_400)
 
 class LeaveDuration(Enum):
     FULL = "Full day"
     AM = "AM only"
     PM = "PM only"
+
+@dataclass(frozen=True)
+class LeaveEntry:
+    employee_id: int
+    leave_date: date
+    leave_type: LeaveType
+    duration: LeaveDuration
+    description: str
+
+@dataclass(frozen=False)    # We need to be able to set the ID after creating the object
+class Employee:
+    id: int
+    name: str
+    abbrev: str
 
 # This is the model class and the data and business logic will be handled here
 class LeaveModel:
@@ -43,11 +50,7 @@ class LeaveModel:
 
     # Lookup existing leave entries with optional employee filter (if employee_id is None, returns all entries for the day)
     def get_entries_for_day(self, day, employee_id=None):
-        entries = self.get_leave_entries(employee_id=employee_id, from_date=day, to_date=day)
-        if entries:
-            return entries[0] # Assuming only one entry per employee/day, return the first match
-        else:
-            return None
+        return self.get_leave_entries(employee_id=employee_id, from_date=day, to_date=day)
     
     # Return all entries for an optional employee with date range filter
     def get_leave_entries(self, employee_id=None, from_date=None, to_date=None):
@@ -98,22 +101,38 @@ class LeaveModel:
 
     def get_employee_name(self, employee_id):
         for emp in self.employees:
-            if emp["id"] == employee_id:
-                return emp["name"]
+            if emp.id == employee_id:
+                return emp.name
         return "Unknown"
 
     def get_employee_abbrev(self, employee_id):
         for emp in self.employees:
-            if emp["id"] == employee_id:
-                abbrev = emp["abbrev"]
+            if emp.id == employee_id:
+                abbrev = emp.abbrev
                 if abbrev is not None and abbrev.strip() != "":
                     return abbrev
                 # If employee has two or more words in their name, use the first letter of the first two words as the abbreviation
-                if len(emp["name"].split()) >= 2:
-                    return "".join([word[0] for word in emp["name"].split()[:2]]).upper()
+                if len(emp.name.split()) >= 2:
+                    return "".join([word[0] for word in emp.name.split()[:2]]).upper()
                 # Otherwise, use the first two letters of their name as the abbreviation
                 return emp["name"][:2].upper()
         return "??"
+    
+    def add_employee(self, emp: Employee):
+        self.employees.append(emp)
+
+    def remove_employee(self, employee_id):
+        self.employees = [e for e in self.employees if e.id != employee_id]
+        # Also remove any leave entries for this employee
+        self.leave_entries = [e for e in self.leave_entries if e.employee_id != employee_id]
+
+    # Update employee details in the model
+    def update_employee(self, emp_id, emp_name: str, emp_abbrev: str):
+        for emp in self.employees:
+            if emp.id == emp_id:
+                emp.name = emp_name
+                emp.abbrev = emp_abbrev
+                break
 
 class EmployeeRepository:
     def __init__(self, db_path="leave_calendar.db"):
@@ -124,14 +143,40 @@ class EmployeeRepository:
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS employees (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT,
-                abbrev CHAR(2))
+                name TEXT NOT NULL UNIQUE,
+                abbrev CHAR(2) UNIQUE)
         """)
         self.conn.commit()
 
     def load_employees(self):
         cursor = self.conn.execute("SELECT id, name, abbrev FROM employees")
-        return [{"id": row[0], "name": row[1], "abbrev": row[2]} for row in cursor.fetchall()]
+        return [Employee(id=row[0], name=row[1], abbrev=row[2]) for row in cursor.fetchall()]
+
+    def add_employee(self, name: str, abbrev: str) -> int:
+        self.conn.execute(
+            "INSERT OR IGNORE INTO employees (name, abbrev) VALUES (?, ?)",
+            (name, abbrev)
+        )
+        self.conn.commit()
+        cursor = self.conn.execute("SELECT last_insert_rowid()")
+        return int(cursor.fetchone()[0])
+    
+    def remove_employee(self, employee_id) -> int:
+        result = self.conn.execute(
+            "DELETE FROM employees WHERE id = ?",
+            (employee_id,)
+        )
+        self.conn.commit()
+        return result.rowcount
+    
+    # Update employee record in the database
+    def update_employee(self, emp_id, name: str, abbrev: str) -> int:
+        result = self.conn.execute(
+            "UPDATE employees SET name = ?, abbrev = ? WHERE id = ?",
+            (name, abbrev, emp_id)
+        )
+        self.conn.commit()
+        return result.rowcount
 
 # This class will handle the database interactions for storing and retrieving leave dates.
 # Keeping it separate from the model allows us to easily swap out the storage mechanism in 

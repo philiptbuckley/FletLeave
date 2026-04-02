@@ -1,7 +1,7 @@
 import flet as ft
 from datetime import date
 from view import LeaveCalendarView
-from model import LeaveEntry, LeaveModel, LeaveRepository, EmployeeRepository
+from model import LeaveEntry, LeaveModel, LeaveRepository, Employee, EmployeeRepository
 
 # ---- Conroller ---- This class will handle the user interactions and update the model and view accordingly
 class CalendarController:
@@ -60,11 +60,48 @@ class CalendarController:
         self.model.current_employee_id = employee_id
         self.refresh()
 
+    # Return a list of leave entries for employee
+    def get_leave_entries_for_employee(self, employee_id):
+        return self.model.get_leave_entries(employee_id=employee_id)
+
     def get_employee_name(self, employee_id):
         return self.model.get_employee_name(employee_id)
 
     def get_employee_abbrev(self, employee_id):
         return self.model.get_employee_abbrev(employee_id)
+    
+    def get_employee_id_by_name(self, name):
+        for emp in self.model.employees:
+            if emp.name == name:
+                return emp.id
+
+    def add_employee(self, emp_name: str, emp_abbrev=None) -> int:
+        employee = Employee(id=None, name=emp_name, abbrev=emp_abbrev)  # Create object
+        id = self.employees.add_employee(emp_name, emp_abbrev)          # Add to the database and get new ID
+        if id > 0:       # Add to the database
+            employee.__setattr__('id', id)                              # Save the id in the object
+            self.model.add_employee(employee)                           # Add to the model
+            self.refresh()
+            return id
+        else:
+            return 0
+        
+    def delete_employee(self, employee_id) -> bool:
+        if self.employees.remove_employee(employee_id) > 0:             # Remove from the database
+            self.model.remove_employee(employee_id)                     # Remove from the model
+            self.refresh()
+            return True
+        else:
+            return False
+
+    # Update the employee in the database and model
+    def update_employee(self, emp_id, emp_name: str, emp_abbrev=None) -> bool:
+        if self.employees.update_employee(emp_id, emp_name, emp_abbrev) > 0:  # Update in the database
+            self.model.update_employee(emp_id, emp_name, emp_abbrev)          # Update in the model
+            self.refresh()
+            return True
+        else:
+            return False
 
 # Main function to run the app
 # MVC design pattern
