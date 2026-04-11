@@ -67,7 +67,7 @@ class LeaveCalendarView:
 
         # Add the controls onto the page
         page.add(ft.Row([
-            ft.Column(self.employeeDrop, width=200),
+            ft.Column(self.employeeDrop, width=240),
             ft.IconButton(ft.Icons.ADD, on_click = lambda e: self._open_employee_dialog()),
             ft.IconButton(ft.Icons.EDIT, on_click = lambda e: self._open_employee_dialog(self.employeeDrop.value)),
             ft.Column(controls=[self.nav, self.calendar_grid], expand=True, width=400),
@@ -152,8 +152,54 @@ class LeaveCalendarView:
         self.employee_input_abbrev = ft.TextField(label="Initials", width=90, capitalization=True, max_length=2,
                                     label_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
                                     border=ft.border.all(1, ft.Colors.GREY_400))
+
+        # Work schedule mode (full-time vs part-time)
+        self.working_time_group = ft.RadioGroup(
+            content=ft.Row([
+                ft.Radio(label="Full-time", value="full-time"),
+                ft.Radio(label="Part-time", value="part-time"),
+            ], spacing=20),
+            value="full-time",
+            on_change=self._init_working_days,
+        )
+
+        # Workday checkboxes
+        self.working_day_mon = ft.Checkbox(label="Mon", value=False)
+        self.working_day_tue = ft.Checkbox(label="Tue", value=False)
+        self.working_day_wed = ft.Checkbox(label="Wed", value=False)
+        self.working_day_thu = ft.Checkbox(label="Thu", value=False)
+        self.working_day_fri = ft.Checkbox(label="Fri", value=False)
+        self.working_day_sat = ft.Checkbox(label="Sat", value=False)
+        self.working_day_sun = ft.Checkbox(label="Sun", value=False)
+
+        self.working_day_checkboxes = [
+            self.working_day_mon,
+            self.working_day_tue,
+            self.working_day_wed,
+            self.working_day_thu,
+            self.working_day_fri,
+            self.working_day_sat,
+            self.working_day_sun,
+        ]
+
+        self.working_days_group = ft.Container(
+            content=ft.Column([
+                ft.Text("Regular Work Days", style=ft.TextStyle(weight=ft.FontWeight.BOLD)),
+                ft.Row(self.working_day_checkboxes, spacing=5),
+            ], spacing=8),
+            border=ft.border.all(1, ft.Colors.GREY_400),
+            border_radius=ft.border_radius.all(5),
+            padding=ft.padding.all(8),
+            width=520,
+        )
+
         return ft.AlertDialog(
-            content = ft.Column(controls = [self.employee_input_name, self.employee_input_abbrev]),
+            content = ft.Column(controls = [
+                self.employee_input_name,
+                self.employee_input_abbrev,
+                self.working_time_group,
+                self.working_days_group
+            ], spacing=20),
             actions=[
                 ft.TextButton("Cancel", on_click=self._close_employee_dialog),
                 ft.TextButton("Delete", on_click=self._delete_employee),
@@ -181,6 +227,27 @@ class LeaveCalendarView:
             self.controller.change_employee(None)
         else:
             self.controller.change_employee(int(self.employeeDrop.value))
+
+    def _init_working_days(self, e=None):
+        # Full-time: Mon-Fri checked & disabled, Sat-Sun unchecked & disabled
+        # Part-time: all checkboxes enabled (manual selection)
+        full_time = (self.working_time_group.value == "full-time")
+        for cb in [self.working_day_mon, self.working_day_tue, self.working_day_wed, self.working_day_thu, self.working_day_fri]:
+            cb.value = True if full_time else cb.value
+            cb.disabled = full_time
+
+        if full_time:   # Full timers don't work weekends so clear and disable those checkboxes
+            self.working_day_sat.value = False
+            self.working_day_sun.value = False
+            self.working_day_sat.disabled = full_time
+            self.working_day_sun.disabled = full_time
+        else:
+            for cb in self.working_day_checkboxes:
+                # Clear all checkboxes when switching to part-time to force user to make a selection
+                cb.value = False
+                cb.disabled = False
+
+        self.page.update()
 
     # Render the cell for a given day, applying background color or gradient based on the leave type and duration
     # entries is a list of leave entries for the day. If empty render as normal, if all leave is the same type colour the cell with that type, 
@@ -345,6 +412,10 @@ class LeaveCalendarView:
         if emp == None:
             # Add code goes here
 
+            # Default work schedule is full-time for new employees
+            self.working_time_group.value = "full-time"
+            self._set_working_days_mode(None)
+
             # Update the dialog title and buttons visibility for add vs edit operation
             self.employee_dialog.title = "Add Employee"
             self.employee_input_name.value = ""
@@ -363,8 +434,24 @@ class LeaveCalendarView:
             self.employee_dialog.title = "Update Employee"
             self.employee_input_name.value = self.controller.model.get_employee_name(int(emp))
             self.employee_input_abbrev.value = self.controller.model.get_employee_abbrev(int(emp))
+            if self.controller.model.get_employee_working_days(int(emp)) == [0, 1, 2, 3, 4]: # If regular working days are Mon-Fri then set to full-time otherwise part-time
+                self.working_time_group.value = "full-time"
+            else:
+                self.working_time_group.value = "part-time"
+            # Enable / disbale the working days checkboxes based on the work schedule mode (full-time vs part-time)
+            self._init_working_days(None)
+            if self.working_time_group.value == "part-time":
+                working_days = self.controller.model.get_employee_working_days(int(emp))
+                self.working_day_mon.value = 0 in working_days
+                self.working_day_tue.value = 1 in working_days
+                self.working_day_wed.value = 2 in working_days
+                self.working_day_thu.value = 3 in working_days
+                self.working_day_fri.value = 4 in working_days
+                self.working_day_sat.value = 5 in working_days
+                self.working_day_sun.value = 6 in working_days
             self.employee_dialog.actions[2].visible = False
             self.employee_dialog.actions[3].visible = True
+
 
         # Flet sometimes requires show_dialog to actually render the dialog
         self.employee_dialog.open = True
@@ -376,8 +463,29 @@ class LeaveCalendarView:
         self.employee_dialog.open = False
         self.page.update()
 
+    def _get_working_days(self):
+        if self.working_time_group.value == "full-time":
+            return [0, 1, 2, 3, 4]  # Mon-Fri
+        else:
+            working_days = []
+            if self.working_day_mon.value:
+                working_days.append(0)
+            if self.working_day_tue.value:
+                working_days.append(1)
+            if self.working_day_wed.value:
+                working_days.append(2)
+            if self.working_day_thu.value:
+                working_days.append(3)
+            if self.working_day_fri.value:
+                working_days.append(4)
+            if self.working_day_sat.value:
+                working_days.append(5)
+            if self.working_day_sun.value:
+                working_days.append(6)
+            return working_days
+
     def _add_employee(self, e):
-        new_id = self.controller.add_employee(self.employee_input_name.value, self.employee_input_abbrev.value)
+        new_id = self.controller.add_employee(self.employee_input_name.value, self.employee_input_abbrev.value, self._get_working_days())
         if new_id > 0:
             self.employeeDrop.text = self.employee_input_name.value # Update the dropdown with updated employee name
             self.employeeDrop.value = new_id
@@ -388,7 +496,7 @@ class LeaveCalendarView:
         self._close_employee_dialog()
 
     def _update_employee(self, e):
-        if self.controller.update_employee (int(self.employeeDrop.value), self.employee_input_name.value, self.employee_input_abbrev.value):
+        if self.controller.update_employee (int(self.employeeDrop.value), self.employee_input_name.value, self.employee_input_abbrev.value, self._get_working_days()):
             self.employeeDrop.text = self.employee_input_name.value # Update the dropdown with updated employee name
             self.page.show_dialog(ft.SnackBar(content=ft.Text(f"{self.employeeDrop.text} updated successfully")))
             self.controller.refresh()  # Refresh the calendar to show the updated employee name in the dropdown and calendar
@@ -445,13 +553,20 @@ class LeaveCalendarView:
             self.page.show_dialog(ft.SnackBar(content=ft.Text("Please select an employee to create or edit leave")))
             return
         elif len(entry) == 1:
+            self.leave_dialog.title = "Edit leave for " + self.controller.get_employee_name(entry[0].employee_id)
             selected_type = entry[0].leave_type.name
             selected_dur = entry[0].duration.name
             selected_description = entry[0].description
-        else:   # No existing entry - set defaults for add new leave
-            selected_type = self.controller.model.selected_leave_type.name
-            selected_dur = self.controller.model.selected_duration.name
-            selected_description = ""
+            self.controller.model.current_employee_id = entry[0].employee_id # Set employee just in case 'All Employees' are selected
+        else:   # No existing entries, add new leave unless an employee is not selected in the dropdown, in which case prompt user to select an employee first  
+            if self.employeeDrop.value == "all":
+                self.page.show_dialog(ft.SnackBar(content=ft.Text("Please select an employee to create or edit leave")))
+                return
+            else:
+                self.leave_dialog.title = "Add new leave for " + self.employeeDrop.text
+                selected_type = self.controller.model.selected_leave_type.name
+                selected_dur = self.controller.model.selected_duration.name
+                selected_description = ""
 
         # set the radio group selections & desciptive text
         self.leave_type_group.value = selected_type

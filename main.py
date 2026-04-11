@@ -75,9 +75,9 @@ class CalendarController:
             if emp.name == name:
                 return emp.id
 
-    def add_employee(self, emp_name: str, emp_abbrev=None) -> int:
-        employee = Employee(id=None, name=emp_name, abbrev=emp_abbrev)  # Create object
-        id = self.employees.add_employee(emp_name, emp_abbrev)          # Add to the database and get new ID
+    def add_employee(self, emp_name: str, emp_abbrev=None, working_days=None) -> int:
+        employee = Employee(id=None, name=emp_name, abbrev=emp_abbrev, regular_work_days=working_days)  # Create object
+        id = self.employees.add_employee(emp_name, emp_abbrev, working_days)          # Add to the database and get new ID
         if id > 0:       # Add to the database
             employee.__setattr__('id', id)                              # Save the id in the object
             self.model.add_employee(employee)                           # Add to the model
@@ -87,6 +87,10 @@ class CalendarController:
             return 0
         
     def delete_employee(self, employee_id) -> bool:
+        # First remove any leave entries for this employee to maintain referential integrity, then remove the employee
+        for entry in self.model.get_leave_entries(employee_id=employee_id):
+            self.leave.remove_entry(entry.leave_date, employee_id)
+            self.model.remove_leave(employee_id, entry.leave_date)
         if self.employees.remove_employee(employee_id) > 0:             # Remove from the database
             self.model.remove_employee(employee_id)                     # Remove from the model
             self.refresh()
@@ -95,9 +99,9 @@ class CalendarController:
             return False
 
     # Update the employee in the database and model
-    def update_employee(self, emp_id, emp_name: str, emp_abbrev=None) -> bool:
-        if self.employees.update_employee(emp_id, emp_name, emp_abbrev) > 0:  # Update in the database
-            self.model.update_employee(emp_id, emp_name, emp_abbrev)          # Update in the model
+    def update_employee(self, emp_id, emp_name: str, emp_abbrev=None, working_days=None) -> bool:
+        if self.employees.update_employee(emp_id, emp_name, emp_abbrev, working_days) > 0:  # Update in the database
+            self.model.update_employee(emp_id, emp_name, emp_abbrev, working_days)          # Update in the model
             self.refresh()
             return True
         else:

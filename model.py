@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import flet as ft
 from datetime import date
@@ -35,6 +36,7 @@ class Employee:
     id: int
     name: str
     abbrev: str
+    regular_work_days: list = None  # Optional list of integers representing regular work days (0=Monday, 6=Sunday)
 
 # This is the model class and the data and business logic will be handled here
 class LeaveModel:
@@ -84,6 +86,12 @@ class LeaveModel:
                                duration=self.selected_duration)
             self.add_leave(entry)
             return True # Added
+        
+    def get_employee_working_days(self, employee_id):
+        for emp in self.employees:
+            if emp.id == employee_id:
+                return emp.regular_work_days
+        return None
 
     # Backward navigation
     def prev(self):
@@ -127,11 +135,12 @@ class LeaveModel:
         self.leave_entries = [e for e in self.leave_entries if e.employee_id != employee_id]
 
     # Update employee details in the model
-    def update_employee(self, emp_id, emp_name: str, emp_abbrev: str):
+    def update_employee(self, emp_id, emp_name: str, emp_abbrev: str, emp_working_days: list):
         for emp in self.employees:
             if emp.id == emp_id:
                 emp.name = emp_name
                 emp.abbrev = emp_abbrev
+                emp.regular_work_days = emp_working_days
                 break
 
 class EmployeeRepository:
@@ -149,13 +158,13 @@ class EmployeeRepository:
         self.conn.commit()
 
     def load_employees(self):
-        cursor = self.conn.execute("SELECT id, name, abbrev FROM employees")
-        return [Employee(id=row[0], name=row[1], abbrev=row[2]) for row in cursor.fetchall()]
+        cursor = self.conn.execute("SELECT id, name, abbrev, regular_work_days FROM employees")
+        return [Employee(id=row[0], name=row[1], abbrev=row[2], regular_work_days=json.loads(row[3]) if row[3] else []) for row in cursor.fetchall()]
 
-    def add_employee(self, name: str, abbrev: str) -> int:
+    def add_employee(self, name: str, abbrev: str, regular_work_days: list = None) -> int:
         self.conn.execute(
-            "INSERT OR IGNORE INTO employees (name, abbrev) VALUES (?, ?)",
-            (name, abbrev)
+            "INSERT OR IGNORE INTO employees (name, abbrev, regular_work_days) VALUES (?, ?, ?)",
+            (name, abbrev, json.dumps(regular_work_days) if regular_work_days else None)
         )
         self.conn.commit()
         cursor = self.conn.execute("SELECT last_insert_rowid()")
@@ -170,10 +179,10 @@ class EmployeeRepository:
         return result.rowcount
     
     # Update employee record in the database
-    def update_employee(self, emp_id, name: str, abbrev: str) -> int:
+    def update_employee(self, emp_id, name: str, abbrev: str, regular_work_days: list = None) -> int:
         result = self.conn.execute(
-            "UPDATE employees SET name = ?, abbrev = ? WHERE id = ?",
-            (name, abbrev, emp_id)
+            "UPDATE employees SET name = ?, abbrev = ?, regular_work_days = ? WHERE id = ?",
+            (name, abbrev, json.dumps(regular_work_days) if regular_work_days else None, emp_id)
         )
         self.conn.commit()
         return result.rowcount
